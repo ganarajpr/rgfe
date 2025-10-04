@@ -101,6 +101,10 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         currentAgent: 'orchestrator',
       };
 
+      if (!orchestratorRef.current) {
+        throw new Error('Orchestrator agent not initialized');
+      }
+
       const orchestratorResponse = await orchestratorRef.current.processUserQuery(context);
 
       // If orchestrator completes (non-Sanskrit query), we're done
@@ -124,6 +128,10 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
           ...context,
           currentAgent: 'searcher',
         };
+
+        if (!searcherRef.current) {
+          throw new Error('Searcher agent not initialized');
+        }
 
         const searchResponse = await searcherRef.current.search(searchContext);
         currentSearchResultsRef.current = searchResponse.searchResults || [];
@@ -165,6 +173,10 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       searchResults,
     };
 
+    if (!generatorRef.current) {
+      throw new Error('Generator agent not initialized');
+    }
+
     const generatorResponse = await generatorRef.current.generate(
       generatorContext,
       searchResults,
@@ -181,6 +193,10 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
       // Perform refined search
       setCurrentAgent('searcher');
+      if (!searcherRef.current) {
+        throw new Error('Searcher agent not initialized');
+      }
+
       const refinedSearchResponse = await searcherRef.current.refineSearch(
         generatorContext,
         generatorResponse.searchQuery || '',
@@ -213,6 +229,10 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       setMessages(prev => [...prev, assistantMessage]);
 
       // Stream the answer
+      if (!generatorRef.current) {
+        throw new Error('Generator agent not initialized');
+      }
+
       let fullContent = '';
       for await (const chunk of generatorRef.current.streamAnswer(userQuery, searchResults)) {
         fullContent += chunk;
