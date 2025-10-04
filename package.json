@@ -7,7 +7,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "export": "next build",
+    "deploy": "npm run export && touch out/.nojekyll"
   },
   "keywords": [
     "nextjs",

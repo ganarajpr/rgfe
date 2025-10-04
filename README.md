@@ -46,6 +46,47 @@ npm run dev
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
+### 🌐 Live Demo
+
+The application is deployed on GitHub Pages and can be accessed at:
+**https://[your-username].github.io/rgfe/**
+
+## 📦 Deployment
+
+### GitHub Pages (Automatic)
+
+This project is configured for automatic deployment to GitHub Pages:
+
+1. **Enable GitHub Pages**: Go to your repository Settings → Pages
+2. **Source**: Select "GitHub Actions" as the source
+3. **Automatic Deployment**: Every push to `main`/`master` branch will automatically deploy
+
+The deployment workflow will:
+- Build the static site using `npm run export`
+- Deploy to GitHub Pages
+- Make the site available at `https://[username].github.io/rgfe/`
+
+### Manual Deployment
+
+To deploy manually:
+
+```bash
+# Build the static site
+npm run export
+
+# The built files will be in the 'out' directory
+# Upload the contents of 'out' to your web server
+```
+
+### Local Static Build
+
+To test the static build locally:
+
+```bash
+npm run export
+npx serve out
+```
+
 ## 📖 Usage
 
 ### First Time Setup
