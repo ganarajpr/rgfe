@@ -60,9 +60,9 @@ const AgentChatInterface = ({
     if (!currentAgent || !isProcessing) return null;
 
     const agentInfo = {
-      orchestrator: { label: 'Analyzing', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400', icon: '🤖' },
-      searcher: { label: 'Searching', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400', icon: '🔍' },
-      generator: { label: 'Generating', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', icon: '📝' },
+      orchestrator: { label: 'Analyzing', color: 'bg-purple-100 text-purple-700', icon: '🤖' },
+      searcher: { label: 'Searching', color: 'bg-blue-100 text-blue-700', icon: '🔍' },
+      generator: { label: 'Generating', color: 'bg-green-100 text-green-700', icon: '📝' },
     };
 
     const info = agentInfo[currentAgent];
@@ -81,9 +81,9 @@ const AgentChatInterface = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+      <header className="border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,10 +91,10 @@ const AgentChatInterface = ({
             </svg>
           </div>
           <div>
-            <h1 className="font-semibold text-gray-900 dark:text-white">Sanskrit Scholar AI</h1>
+            <h1 className="font-semibold text-gray-900">Sanskrit Assistant</h1>
             <div className="flex items-center gap-2">
               {modelName && (
-                <p className="text-xs text-gray-500 dark:text-gray-500">{modelName}</p>
+                <p className="text-xs text-gray-500">{modelName}</p>
               )}
               {getAgentStatusBadge()}
             </div>
@@ -103,7 +103,7 @@ const AgentChatInterface = ({
         
         <button
           onClick={onNewChat}
-          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
           New Chat
         </button>
@@ -120,13 +120,13 @@ const AgentChatInterface = ({
                 </svg>
               </div>
               <div>
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  Welcome to Sanskrit Scholar AI
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                  Welcome to Sanskrit Assistant
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-gray-600">
                   Ask me anything about Sanskrit literature, texts, philosophy, and teachings.
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                <p className="text-sm text-gray-500 mt-2">
                   Powered by a multi-agent system for comprehensive answers
                 </p>
               </div>
@@ -141,10 +141,10 @@ const AgentChatInterface = ({
                   <button
                     key={suggestion.action}
                     onClick={() => setInput(suggestion.action)}
-                    className="p-4 text-left rounded-xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                    className="p-4 text-left rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
                   >
                     <div className="text-2xl mb-2">{suggestion.icon}</div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    <div className="text-sm font-medium text-gray-900">
                       {suggestion.text}
                     </div>
                   </button>
@@ -167,7 +167,7 @@ const AgentChatInterface = ({
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 py-4">
+      <div className="border-t border-gray-200 bg-white px-4 py-4">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="relative flex items-end gap-2">
             <div className="flex-1 relative">
@@ -179,13 +179,13 @@ const AgentChatInterface = ({
                 placeholder="Ask about Sanskrit literature..."
                 disabled={isProcessing}
                 rows={1}
-                className="w-full px-4 py-3 pr-12 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                className="w-full px-4 py-3 pr-12 rounded-2xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
               />
             </div>
             <button
               type="submit"
               disabled={!input.trim() || isProcessing}
-              className="p-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white transition-colors flex-shrink-0"
+              className="p-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white transition-colors flex-shrink-0"
               title="Send message"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +193,7 @@ const AgentChatInterface = ({
               </svg>
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-2 text-center">
+          <p className="text-xs text-gray-500 mt-2 text-center">
             Press Enter to send, Shift + Enter for new line
           </p>
         </form>

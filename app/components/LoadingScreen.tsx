@@ -7,7 +7,7 @@ interface LoadingScreenProps {
 
 const LoadingScreen = ({ progress = 0, message = 'Loading...' }: LoadingScreenProps) => {
   return (
-    <div className="fixed inset-0 bg-white dark:bg-gray-950 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
       <div className="flex flex-col items-center gap-8 max-w-md px-6">
         {/* Logo/Icon Area */}
         <div className="relative">
@@ -31,10 +31,10 @@ const LoadingScreen = ({ progress = 0, message = 'Loading...' }: LoadingScreenPr
 
         {/* Loading Text */}
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-semibold text-gray-900">
             {message}
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-gray-600">
             This may take a moment...
           </p>
         </div>
@@ -42,13 +42,13 @@ const LoadingScreen = ({ progress = 0, message = 'Loading...' }: LoadingScreenPr
         {/* Progress Bar */}
         {progress > 0 && (
           <div className="w-full max-w-xs">
-            <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
-            <p className="text-xs text-center text-gray-500 dark:text-gray-500 mt-2">
+            <p className="text-xs text-center text-gray-500 mt-2">
               {Math.round(progress)}%
             </p>
           </div>

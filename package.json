@@ -9,7 +9,10 @@
     "start": "next start",
     "lint": "eslint",
     "export": "next build",
-    "deploy": "npm run export && touch out/.nojekyll"
+    "deploy": "npm run export && touch out/.nojekyll",
+    "clean": "rm -rf .next && rm -rf out",
+    "dev:clean": "npm run clean && npm run dev",
+    "build:clean": "npm run clean && npm run build"
   },
   "keywords": [
     "nextjs",

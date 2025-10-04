@@ -56,12 +56,12 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-semibold text-gray-900">
             Select a Language Model
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-sm text-gray-600 mt-2">
             Choose an AI model to load in your browser. The model will be downloaded and cached locally.
           </p>
         </div>
@@ -74,26 +74,26 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
                 onClick={() => setSelectedModel(model.id)}
                 className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 ${
                   selectedModel === model.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-gray-900">
                       {model.name}
                     </h3>
                     {model.recommended && (
-                      <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-medium">
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
                         Recommended
                       </span>
                     )}
                   </div>
-                  <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full">
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                     {model.size}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600">
                   {model.description}
                 </p>
               </button>
@@ -101,14 +101,14 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
           </div>
         </div>
         
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
           <button
             onClick={() => selectedModel && onSelectModel(selectedModel)}
             disabled={!selectedModel}
             className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-200 ${
               selectedModel
                 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
             Load Model

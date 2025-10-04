@@ -38,7 +38,40 @@ export const useWebLLM = () => {
       const engine = await webllm.CreateMLCEngine(modelId, {
         initProgressCallback: (progress) => {
           setLoadingProgress(progress.progress * 100);
-          setLoadingMessage(progress.text);
+          
+          // Customize loading messages based on context while preserving progress details
+          let customMessage = progress.text;
+          
+          // If loading from cache, show cache progress details
+          if (progress.text.includes('cache') || progress.text.includes('Cache')) {
+            // Extract cache-specific progress (like "2/113" parts loaded)
+            if (progress.text.includes('[') && progress.text.includes(']')) {
+              // Extract the part count from brackets like "[2/113]"
+              const bracketMatch = progress.text.match(/\[(\d+\/\d+)\]/);
+              if (bracketMatch) {
+                customMessage = `Loading from cache [${bracketMatch[1]}]...`;
+              } else {
+                customMessage = 'Loading model from cache...';
+              }
+            } else {
+              customMessage = 'Loading model from cache...';
+            }
+          }
+          // If downloading, show download context but keep progress details
+          else if (progress.text.includes('MB loaded') || progress.text.includes('downloading')) {
+            // Keep the original progress text for downloads
+            customMessage = progress.text;
+          }
+          // If initializing, keep the original message
+          else if (progress.text.includes('Initializing') || progress.text.includes('Loading')) {
+            customMessage = progress.text;
+          }
+          // For other cases, show a generic loading message
+          else {
+            customMessage = progress.text;
+          }
+          
+          setLoadingMessage(customMessage);
         },
       });
 

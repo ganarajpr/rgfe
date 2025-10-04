@@ -28,7 +28,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
   if (message.messageType === 'system' || message.messageType === 'thinking') {
     return (
       <div className="flex gap-3 py-3 px-4 mx-auto max-w-4xl">
-        <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-4 py-2 border border-blue-200 dark:border-blue-800">
+        <div className="flex items-center gap-3 text-sm text-gray-400 bg-gray-50 rounded-lg px-4 py-2 border border-gray-200">
           <div className="flex-shrink-0">
             {message.messageType === 'thinking' ? (
               <div className="flex gap-1">
@@ -62,13 +62,13 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
         
         <div className="flex-1 space-y-2 overflow-hidden">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 dark:text-white">You</span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">
+            <span className="font-semibold text-gray-900">You</span>
+            <span className="text-xs text-gray-500">
               {message.timestamp.toLocaleTimeString()}
             </span>
           </div>
           
-          <div className="text-gray-800 dark:text-gray-200">
+          <div className="text-gray-800">
             <p className="whitespace-pre-wrap">{message.content}</p>
           </div>
         </div>
@@ -78,7 +78,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
 
   // Assistant messages
   return (
-    <div className="flex gap-4 py-6 px-4 bg-gray-50 dark:bg-gray-900/50">
+    <div className="flex gap-4 py-6 px-4 bg-gray-50">
       <div className="flex-shrink-0">
         <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500">
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,13 +89,13 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
       
       <div className="flex-1 space-y-2 overflow-hidden">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-gray-900 dark:text-white">Sanskrit Scholar AI</span>
-          <span className="text-xs text-gray-500 dark:text-gray-500">
+          <span className="font-semibold text-gray-900">Sanskrit Assistant</span>
+          <span className="text-xs text-gray-500">
             {message.timestamp.toLocaleTimeString()}
           </span>
         </div>
         
-        <div className="text-gray-800 dark:text-gray-200 prose prose-sm dark:prose-invert max-w-none">
+        <div className="text-gray-800 prose prose-sm max-w-none">
           {isStreaming && !message.content && (
             <div className="flex gap-1">
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
