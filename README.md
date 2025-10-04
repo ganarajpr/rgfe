@@ -6,12 +6,14 @@ A fully client-side AI chat application powered by Next.js, Tailwind CSS, and We
 
 - **100% Client-Side**: All AI processing happens in your browser using WebLLM
 - **Privacy-First**: No data sent to external servers, everything stays on your device
+- **Multi-Agent System**: 🤖 Specialized AI agents work together for comprehensive Sanskrit literature answers
 - **Streaming Responses**: ⚡ Real-time token-by-token generation like ChatGPT
-- **Tool Call Detection**: 🔧 Automatic detection of model capabilities
+- **Intelligent Routing**: Orchestrator agent classifies queries and routes to specialized agents
+- **Iterative Refinement**: Agents can request additional searches for better answers
+- **Real-Time Status Updates**: See what each agent is doing as they process your query
 - **Multiple LLM Support**: Choose from various optimized models (Llama, Phi, Qwen)
 - **ChatGPT-like Interface**: Professional, modern UI similar to ChatGPT
 - **Persistent Model Selection**: Remembers your chosen model across sessions
-- **Gmail-Style Loading**: Smooth loading experience while models download
 - **Markdown Support**: Rich text formatting in AI responses
 - **Dark Mode**: Automatic dark mode based on system preferences
 - **Responsive Design**: Works great on desktop, tablet, and mobile
@@ -73,22 +75,82 @@ npm run dev
 
 The selected model is automatically cached in your browser's IndexedDB storage. The model choice persists across browser sessions, so you won't need to download it again.
 
+## 🤖 Multi-Agent System
+
+This application features a sophisticated **multi-agent system** specialized in Sanskrit literature queries. Three specialized AI agents work together to provide comprehensive, well-researched answers:
+
+### Agent Architecture
+
+```
+User Query → Orchestrator Agent → Classification
+                    ↓
+    Sanskrit-related?    Non-Sanskrit → Polite decline
+                    ↓
+            Searcher Agent → Find relevant texts
+                    ↓
+            Generator Agent → Analyze & Generate answer
+                    ↓
+            Need more info? → Refined search → Loop back
+                    ↓
+            Stream final answer to user
+```
+
+### The Agents
+
+1. **🤖 Orchestrator Agent** - Classifies queries and routes to appropriate agents
+2. **🔍 Searcher Agent** - Finds relevant information from Sanskrit texts
+3. **📝 Generator Agent** - Creates comprehensive answers with citations
+
+### Real-Time Feedback
+
+Watch the agents work with real-time status updates:
+- 🤖 "Analyzing your query..."
+- 🔍 "Searching for relevant information..."
+- ✅ "Found 5 relevant sources"
+- 📝 "Generating comprehensive answer..."
+- ✅ "Answer complete"
+
+### Example Queries
+
+Try asking about:
+- "Explain the concept of Dharma in the Bhagavad Gita"
+- "What are the main schools of Hindu philosophy?"
+- "Tell me about the Upanishads"
+- "Summarize the story of the Mahabharata"
+
+For more details, see [MULTI_AGENT_SYSTEM.md](./docs/MULTI_AGENT_SYSTEM.md)
+
 ## 🏗️ Project Structure
 
 ```
 rgfe/
 ├── app/
 │   ├── components/
-│   │   ├── ChatInterface.tsx    # Main chat UI component
-│   │   ├── ChatMessage.tsx      # Individual message display
-│   │   ├── LLMSelector.tsx      # Model selection modal
-│   │   └── LoadingScreen.tsx    # Loading screen component
+│   │   ├── AgentChatInterface.tsx   # Multi-agent chat UI
+│   │   ├── AgentChatMessage.tsx     # Agent message renderer
+│   │   ├── ChatInterface.tsx        # Original chat UI
+│   │   ├── ChatMessage.tsx          # Individual message display
+│   │   ├── LLMSelector.tsx          # Model selection modal
+│   │   └── LoadingScreen.tsx        # Loading screen component
 │   ├── hooks/
-│   │   └── useWebLLM.ts         # WebLLM integration hook
-│   ├── globals.css              # Global styles
-│   ├── layout.tsx               # Root layout
-│   └── page.tsx                 # Main page component
-├── public/                      # Static assets
+│   │   ├── useWebLLM.ts             # WebLLM integration hook
+│   │   └── useMultiAgent.ts         # Multi-agent orchestration
+│   ├── lib/
+│   │   ├── agents/
+│   │   │   ├── types.ts             # Agent type definitions
+│   │   │   ├── orchestrator.ts      # Orchestrator agent
+│   │   │   ├── searcher.ts          # Searcher agent
+│   │   │   └── generator.ts         # Generator agent
+│   │   └── webllm-provider.ts       # AI SDK adapter for WebLLM
+│   ├── globals.css                  # Global styles
+│   ├── layout.tsx                   # Root layout
+│   └── page.tsx                     # Main page component
+├── docs/
+│   ├── MULTI_AGENT_SYSTEM.md        # Multi-agent architecture docs
+│   ├── FEATURES.md                  # Complete feature list
+│   ├── ARCHITECTURE.md              # Technical deep dive
+│   └── ...
+├── public/                          # Static assets
 ├── package.json
 └── README.md
 ```
@@ -99,7 +161,9 @@ rgfe/
 - **TypeScript**: Type-safe JavaScript
 - **Tailwind CSS**: Utility-first CSS framework
 - **WebLLM**: Browser-based LLM inference powered by MLC
+- **Vercel AI SDK**: Framework for building multi-agent AI systems
 - **Marked**: Markdown parser for rich text rendering
+- **Zod**: Schema validation for agent communications
 
 ## 🔧 Configuration
 
@@ -183,6 +247,7 @@ For comprehensive troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md
 
 ## 📚 Documentation
 
+- **[MULTI_AGENT_SYSTEM.md](./docs/MULTI_AGENT_SYSTEM.md)**: Multi-agent architecture & design
 - **[FEATURES.md](./docs/FEATURES.md)**: Complete feature list
 - **[MODEL_CAPABILITIES.md](./docs/MODEL_CAPABILITIES.md)**: Streaming & tool call guide
 - **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)**: Technical deep dive
@@ -194,6 +259,7 @@ For comprehensive troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [WebLLM Documentation](https://webllm.mlc.ai/)
+- [Vercel AI SDK Documentation](https://sdk.vercel.ai/docs)
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 
 ---

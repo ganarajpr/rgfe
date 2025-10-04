@@ -224,6 +224,7 @@ export const useWebLLM = () => {
     stopGeneration,
     resetChat,
     checkForExistingModel,
+    engine: engineRef.current, // Expose engine for multi-agent system
   };
 };
 

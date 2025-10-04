@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useWebLLM } from './hooks/useWebLLM';
+import { useMultiAgent } from './hooks/useMultiAgent';
+import { createWebLLMProvider } from './lib/webllm-provider';
 import LLMSelector from './components/LLMSelector';
 import LoadingScreen from './components/LoadingScreen';
-import ChatInterface from './components/ChatInterface';
+import AgentChatInterface from './components/AgentChatInterface';
 
 export default function Home() {
   const {
@@ -12,18 +14,30 @@ export default function Home() {
     isModelLoaded,
     loadingProgress,
     loadingMessage,
-    messages,
-    isGenerating,
     currentModel,
-    modelCapabilities,
     loadModel,
-    sendMessage,
-    stopGeneration,
-    resetChat,
     checkForExistingModel,
+    engine,
   } = useWebLLM();
 
   const [isInitialCheck, setIsInitialCheck] = useState(true);
+
+  // Create AI SDK provider from our already-loaded WebLLM engine
+  const aiModel = useMemo(() => {
+    if (!engine || !currentModel || !isModelLoaded) return null;
+    return createWebLLMProvider(engine, currentModel);
+  }, [engine, currentModel, isModelLoaded]);
+
+  // Initialize multi-agent system
+  const {
+    messages,
+    isProcessing,
+    currentAgent,
+    processUserMessage,
+    resetConversation,
+  } = useMultiAgent({ 
+    model: aiModel
+  });
 
   useEffect(() => {
     const initializeModel = async () => {
@@ -56,8 +70,16 @@ export default function Home() {
     );
     
     if (confirmNewChat) {
-      resetChat();
+      resetConversation();
     }
+  };
+
+  const handleSendMessage = async (message: string) => {
+    if (!aiModel || !isModelLoaded) {
+      console.error('Model not ready');
+      return;
+    }
+    await processUserMessage(message);
   };
 
   // Show loading screen during initial check or model loading
@@ -75,16 +97,15 @@ export default function Home() {
     return <LLMSelector onSelectModel={handleSelectModel} isOpen={true} />;
   }
 
-  // Show chat interface once model is loaded
+  // Show multi-agent chat interface once model is loaded
   return (
-    <ChatInterface
-      onSendMessage={sendMessage}
-      onStopGeneration={stopGeneration}
+    <AgentChatInterface
+      onSendMessage={handleSendMessage}
       messages={messages}
-      isGenerating={isGenerating}
+      isProcessing={isProcessing}
+      currentAgent={currentAgent}
       onNewChat={handleNewChat}
       modelName={currentModel}
-      modelCapabilities={modelCapabilities}
     />
   );
 }
