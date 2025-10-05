@@ -1,0 +1,47 @@
+# Cursor AI Rules for RGFE Project
+
+## Documentation
+
+- **NEVER** create documentation files (*.md) in the project root directory
+- **ALWAYS** create documentation files inside the `docs/` folder
+- Documentation file types include: README files, guides, architecture docs, feature docs, implementation summaries, etc.
+- Exception: The main `README.md` in the project root is allowed as it's the entry point for the repository
+
+Examples:
+- ✅ Good: `docs/SEARCH_FUNCTIONALITY.md`
+- ✅ Good: `docs/EMBEDDING_SEARCH.md`
+- ✅ Good: `docs/IMPLEMENTATION_GUIDE.md`
+- ❌ Bad: `SEARCH_IMPLEMENTATION_SUMMARY.md` (in root)
+- ❌ Bad: `EMBEDDING_SEARCH_IMPLEMENTATION.md` (in root)
+- ❌ Bad: `LOGGING_AND_UI_CHANGES.md` (in root)
+
+## File Organization
+
+- Keep the project root clean and minimal
+- Use appropriate subdirectories for all file types:
+  - Documentation → `docs/`
+  - Source code → `app/`
+  - Configuration files → root (only when necessary)
+  - Assets → `public/`
+
+## Code Quality
+
+- Follow TypeScript strict mode
+- Fix all linter errors before completing tasks
+- Use meaningful variable and function names
+- Add JSDoc comments for public APIs
+- Prefer functional components in React
+
+## Logging
+
+- All agent interactions should be logged to console
+- Use structured logging with clear separators
+- Include request/response details for debugging
+- Log search terms and results for transparency
+
+## UI Guidelines
+
+- Maintain minimal, clean interfaces
+- Use consistent color schemes (currently grey tones)
+- Avoid unnecessary icons and decorations unless explicitly requested
+- Focus on content and usability
