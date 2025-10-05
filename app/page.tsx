@@ -44,12 +44,14 @@ export default function Home() {
       // Check if there's a previously loaded model
       const existingModel = checkForExistingModel();
       
-      if (existingModel) {
-        // Try to automatically load the previously selected model
-        await loadModel(existingModel);
-        // If it fails, the model selector will automatically show
-        // since isModelLoaded will remain false
-      }
+      // Always use Qwen 8B model (same as embedding model)
+      const defaultModel = 'Qwen3-8B-q4f16_1-MLC';
+      const modelToLoad = existingModel || defaultModel;
+      
+      // Automatically load the model
+      await loadModel(modelToLoad);
+      // If it fails, the model selector will automatically show
+      // since isModelLoaded will remain false
       
       setIsInitialCheck(false);
     };

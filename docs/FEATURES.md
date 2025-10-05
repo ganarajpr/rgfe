@@ -14,6 +14,21 @@
 - **Model Caching**: Smart caching in IndexedDB for instant subsequent loads
 - **Progress Tracking**: Real-time download and initialization progress
 
+### 🔍 Multi-Agent System with Semantic Search
+- **Orchestrator Agent**: Coordinates task flow and agent selection
+- **Searcher Agent**: Searches through Sanskrit text corpus (Rigveda)
+- **Generator Agent**: Synthesizes responses from search results
+- **EmbeddingGemma Model**: Google's 300M parameter embedding model running in-browser
+- **Transformers.js**: Client-side ML inference with HuggingFace models
+- **Vector Search Engine**: Orama-powered semantic search via cosine similarity
+- **Binary Index**: Compressed search index loaded in browser (~20MB)
+- **10,000+ Documents**: Sanskrit passages with 512-dimensional embeddings
+- **Semantic Understanding**: Finds concepts and meanings, not just keywords
+- **Matryoshka Representation Learning**: Efficient dimension truncation (768d → 512d)
+- **Multilingual Support**: 100+ languages supported by EmbeddingGemma
+- **Privacy-First**: All embedding generation happens in the browser
+- **Comprehensive Logging**: Every search step logged to console
+
 ### 🎨 User Interface
 
 #### Model Selection
@@ -188,6 +203,9 @@
 - **DEPLOYMENT.md**: Deployment instructions
 - **FEATURES.md**: This file
 - **MODEL_CAPABILITIES.md**: Streaming and tool call guide
+- **MULTI_AGENT_SYSTEM.md**: Multi-agent architecture guide
+- **SEARCH_FUNCTIONALITY.md**: Search engine documentation
+- **EMBEDDING_SEARCH.md**: Semantic search with embeddings guide
 
 ### Code Documentation
 - TypeScript interfaces
@@ -298,7 +316,7 @@
 - [ ] Model fine-tuning UI
 - [ ] Custom model upload
 - [ ] Model ensemble
-- [ ] RAG integration
+- [x] RAG integration (multi-agent search system) 🔍
 - [ ] Plugin system
 - [ ] API endpoints
 - [ ] Multi-user support

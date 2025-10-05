@@ -93,7 +93,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
       // Step 1: Send to Orchestrator for classification
       setCurrentAgent('orchestrator');
-      addStatusMessage('🤖 Analyzing your query...', 'orchestrator');
+      addStatusMessage('Analyzing your query...', 'orchestrator');
 
       const context: AgentContext = {
         userQuery,
@@ -105,7 +105,24 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         throw new Error('Orchestrator agent not initialized');
       }
 
+      // Log orchestrator request
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🤖 ORCHESTRATOR REQUEST');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('Query:', userQuery);
+      console.log('Context:', { conversationHistory: messages.length, currentAgent: 'orchestrator' });
+      console.log('───────────────────────────────────────────────────────────');
+
       const orchestratorResponse = await orchestratorRef.current.processUserQuery(context);
+
+      // Log orchestrator response
+      console.log('🤖 ORCHESTRATOR RESPONSE');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('Content:', orchestratorResponse.content);
+      console.log('Next Agent:', orchestratorResponse.nextAgent || 'none');
+      console.log('Is Complete:', orchestratorResponse.isComplete);
+      console.log('Status:', orchestratorResponse.statusMessage);
+      console.log('═══════════════════════════════════════════════════════════\n');
 
       // If orchestrator completes (non-Sanskrit query), we're done
       if (orchestratorResponse.isComplete) {
@@ -133,11 +150,33 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
           throw new Error('Searcher agent not initialized');
         }
 
+        // Log searcher request
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('🔍 SEARCHER REQUEST');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('Query:', userQuery);
+        console.log('Search Term:', userQuery);
+        console.log('───────────────────────────────────────────────────────────');
+
         const searchResponse = await searcherRef.current.search(searchContext);
         currentSearchResultsRef.current = searchResponse.searchResults || [];
 
+        // Log searcher response
+        console.log('🔍 SEARCHER RESPONSE');
+        console.log('───────────────────────────────────────────────────────────');
+        console.log('Search Term Used:', userQuery);
+        console.log('Results Found:', searchResponse.searchResults?.length || 0);
+        console.log('Status:', searchResponse.statusMessage);
+        if (searchResponse.searchResults && searchResponse.searchResults.length > 0) {
+          console.log('Top Results:');
+          searchResponse.searchResults.slice(0, 3).forEach((result, i) => {
+            console.log(`  ${i + 1}. [${result.relevance.toFixed(3)}] ${result.title}`);
+          });
+        }
+        console.log('═══════════════════════════════════════════════════════════\n');
+
         if (searchResponse.statusMessage) {
-          addStatusMessage(searchResponse.statusMessage, 'searcher');
+          addStatusMessage(`Searching for: "${userQuery}" - ${searchResponse.statusMessage}`, 'searcher');
         }
 
         // Step 3: Route to Generator
@@ -164,7 +203,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     searchResults: SearchResult[]
   ) => {
     setCurrentAgent('generator');
-    addStatusMessage('📝 Analyzing search results and generating answer...', 'generator');
+    addStatusMessage('Analyzing search results and generating answer...', 'generator');
 
     const generatorContext: AgentContext = {
       userQuery,
@@ -177,11 +216,30 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       throw new Error('Generator agent not initialized');
     }
 
+    // Log generator request
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📝 GENERATOR REQUEST');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('Query:', userQuery);
+    console.log('Search Results:', searchResults.length);
+    console.log('Iteration:', searchIterationRef.current);
+    console.log('───────────────────────────────────────────────────────────');
+
     const generatorResponse = await generatorRef.current.generate(
       generatorContext,
       searchResults,
       searchIterationRef.current
     );
+
+    // Log generator response
+    console.log('📝 GENERATOR RESPONSE');
+    console.log('───────────────────────────────────────────────────────────');
+    console.log('Requires More Search:', generatorResponse.requiresMoreSearch || false);
+    console.log('Is Complete:', generatorResponse.isComplete);
+    console.log('Next Agent:', generatorResponse.nextAgent || 'none');
+    console.log('Search Query:', generatorResponse.searchQuery || 'none');
+    console.log('Status:', generatorResponse.statusMessage);
+    console.log('═══════════════════════════════════════════════════════════\n');
 
     // Check if generator needs more search
     if (generatorResponse.requiresMoreSearch && generatorResponse.nextAgent === 'searcher') {
@@ -197,6 +255,15 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         throw new Error('Searcher agent not initialized');
       }
 
+      // Log refined search request
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🔍 REFINED SEARCHER REQUEST (Iteration ' + searchIterationRef.current + ')');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('Original Query:', userQuery);
+      console.log('Refined Search Term:', generatorResponse.searchQuery || '');
+      console.log('Previous Results Count:', currentSearchResultsRef.current.length);
+      console.log('───────────────────────────────────────────────────────────');
+
       const refinedSearchResponse = await searcherRef.current.refineSearch(
         generatorContext,
         generatorResponse.searchQuery || '',
@@ -205,8 +272,18 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
       currentSearchResultsRef.current = refinedSearchResponse.searchResults || [];
       
+      // Log refined search response
+      console.log('🔍 REFINED SEARCHER RESPONSE');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('Refined Search Term:', generatorResponse.searchQuery || '');
+      console.log('Total Results Now:', currentSearchResultsRef.current.length);
+      console.log('New Results Added:', (refinedSearchResponse.searchResults?.length || 0) - currentSearchResultsRef.current.length);
+      console.log('Status:', refinedSearchResponse.statusMessage);
+      console.log('═══════════════════════════════════════════════════════════\n');
+      
       if (refinedSearchResponse.statusMessage) {
-        addStatusMessage(refinedSearchResponse.statusMessage, 'searcher');
+        const refinedTerm = generatorResponse.searchQuery || '';
+        addStatusMessage(`Refined search for: "${refinedTerm}" - ${refinedSearchResponse.statusMessage}`, 'searcher');
       }
 
       // Loop back to generator with new results
@@ -233,9 +310,19 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         throw new Error('Generator agent not initialized');
       }
 
+      // Log streaming start
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('📝 GENERATOR STREAMING FINAL ANSWER');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('Query:', userQuery);
+      console.log('Using Results:', searchResults.length);
+      console.log('───────────────────────────────────────────────────────────');
+
       let fullContent = '';
+      let chunkCount = 0;
       for await (const chunk of generatorRef.current.streamAnswer(userQuery, searchResults)) {
         fullContent += chunk;
+        chunkCount++;
         setMessages(prev =>
           prev.map(msg =>
             msg.id === assistantMessageId
@@ -245,8 +332,16 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         );
       }
 
+      // Log streaming complete
+      console.log('📝 GENERATOR STREAMING COMPLETE');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('Total Chunks:', chunkCount);
+      console.log('Total Characters:', fullContent.length);
+      console.log('Final Answer Preview:', fullContent.substring(0, 200) + '...');
+      console.log('═══════════════════════════════════════════════════════════\n');
+
       if (generatorResponse.statusMessage) {
-        addStatusMessage('✅ Answer complete', 'generator');
+        addStatusMessage('Answer complete', 'generator');
       }
     }
   };

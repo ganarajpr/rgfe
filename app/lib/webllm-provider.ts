@@ -18,12 +18,12 @@ export function createWebLLMProvider(engine: webllm.MLCEngine, modelId: string):
           return { role: 'system' as const, content: msg.content };
         } else if (msg.role === 'user') {
           const contentStr = msg.content
-            .map(part => part.type === 'text' ? part.text : '')
+            .map(part => part.type === 'text' ? (part.text || '') : '')
             .join('\n');
           return { role: 'user' as const, content: contentStr };
         } else if (msg.role === 'assistant') {
           const contentStr = msg.content
-            .map(part => part.type === 'text' ? part.text : '')
+            .map(part => part.type === 'text' ? (part.text || '') : '')
             .join('\n');
           return { role: 'assistant' as const, content: contentStr };
         }
@@ -58,12 +58,12 @@ export function createWebLLMProvider(engine: webllm.MLCEngine, modelId: string):
           return { role: 'system' as const, content: msg.content };
         } else if (msg.role === 'user') {
           const contentStr = msg.content
-            .map(part => part.type === 'text' ? part.text : '')
+            .map(part => part.type === 'text' ? (part.text || '') : '')
             .join('\n');
           return { role: 'user' as const, content: contentStr };
         } else if (msg.role === 'assistant') {
           const contentStr = msg.content
-            .map(part => part.type === 'text' ? part.text : '')
+            .map(part => part.type === 'text' ? (part.text || '') : '')
             .join('\n');
           return { role: 'assistant' as const, content: contentStr };
         }

@@ -7,7 +7,7 @@ const GENERATOR_SYSTEM_PROMPT = `You are a Generator Agent specialized in creati
 Your role is to:
 1. Analyze search results provided to you
 2. Determine if the search results are sufficient to answer the user's query
-3. If insufficient, request additional search with specific refinement queries
+3. If insufficient, request additional search with specific refinement queries IN SANSKRIT/DEVANAGARI
 4. If sufficient, generate a comprehensive, well-structured answer
 
 When analyzing search results:
@@ -15,8 +15,10 @@ When analyzing search results:
 - Identify any gaps in information
 - Determine if you need more specific or additional context
 
+IMPORTANT: When requesting additional search, you MUST provide search terms in Sanskrit/Devanagari script because the search index contains Sanskrit text. Translate English concepts to Sanskrit terms.
+
 Response format:
-- If need more search: Output JSON with { "needsMoreSearch": true, "searchQuery": "refined query", "reasoning": "why" }
+- If need more search: Output JSON with { "needsMoreSearch": true, "searchQuery": "sanskrit terms in devanagari", "reasoning": "why" }
 - If ready to answer: Generate a detailed, accurate response citing the search results
 
 Your answers should:
@@ -121,7 +123,7 @@ Output ONLY a JSON object:
           isComplete: false,
           requiresMoreSearch: true,
           searchQuery: analysis.searchQuery,
-          statusMessage: `🔍 Requesting additional search: "${analysis.searchQuery}"`,
+          statusMessage: `Requesting additional search: "${analysis.searchQuery}"`,
         };
       }
 
@@ -165,7 +167,7 @@ Generate your answer now:`;
     return {
       content: '', // Will be populated by streaming in streamAnswer
       isComplete: true,
-      statusMessage: '✅ Generating answer...',
+      statusMessage: 'Generating answer...',
     };
   }
 

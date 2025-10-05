@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import * as webllm from '@mlc-ai/web-llm';
 
 interface Message {
@@ -243,6 +243,110 @@ export const useWebLLM = () => {
     return savedModel;
   }, []);
 
+  /**
+   * Cleanup function to unload model and free memory
+   */
+  const unloadModel = useCallback(async () => {
+    if (engineRef.current) {
+      try {
+        console.log('🧹 Unloading model from memory...');
+        
+        // Stop any ongoing generation
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
+        
+        // Unload the model using WebLLM's unload method
+        await engineRef.current.unload();
+        
+        // Clear the engine reference
+        engineRef.current = null;
+        
+        // Reset state
+        setIsModelLoaded(false);
+        setCurrentModel('');
+        setModelCapabilities(null);
+        
+        console.log('✅ Model unloaded successfully');
+      } catch (error) {
+        console.error('❌ Error unloading model:', error);
+        // Even if there's an error, clear the reference to prevent memory leaks
+        engineRef.current = null;
+      }
+    }
+  }, []);
+
+  /**
+   * Set up cleanup on tab close/refresh
+   */
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Unload model synchronously when tab is closing
+      if (engineRef.current) {
+        console.log('🧹 Tab closing - cleaning up model...');
+        
+        // Stop any ongoing generation
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        
+        // Try to unload the model
+        // Note: This might not complete if the tab closes too quickly,
+        // but the browser should clean up GPU resources automatically
+        try {
+          void engineRef.current.unload();
+        } catch {
+          // Silently fail - tab is closing anyway
+        }
+        
+        // Clear references
+        engineRef.current = null;
+        abortControllerRef.current = null;
+      }
+    };
+
+    const handleUnload = () => {
+      // Final cleanup when page is actually unloading
+      if (engineRef.current) {
+        try {
+          void engineRef.current.unload();
+        } catch {
+          // Silently fail - page is unloading anyway
+        }
+        engineRef.current = null;
+      }
+      abortControllerRef.current = null;
+    };
+
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleUnload);
+
+    // Cleanup function that runs when component unmounts
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleUnload);
+      
+      // Unload model when component unmounts (e.g., navigation)
+      if (engineRef.current) {
+        console.log('🧹 Component unmounting - cleaning up model...');
+        try {
+          void engineRef.current.unload();
+        } catch (error) {
+          console.error('Error during unmount cleanup:', error);
+        }
+        engineRef.current = null;
+      }
+      
+      // Clear abort controller
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array - only run once on mount/unmount
+
   return {
     isLoading,
     isModelLoaded,
@@ -257,6 +361,7 @@ export const useWebLLM = () => {
     stopGeneration,
     resetChat,
     checkForExistingModel,
+    unloadModel, // Expose unloadModel for manual cleanup
     engine: engineRef.current, // Expose engine for multi-agent system
   };
 };

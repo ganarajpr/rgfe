@@ -139,8 +139,20 @@ User Query → Orchestrator Agent → Classification
 ### The Agents
 
 1. **🤖 Orchestrator Agent** - Classifies queries and routes to appropriate agents
-2. **🔍 Searcher Agent** - Finds relevant information from Sanskrit texts
+2. **🔍 Searcher Agent** - Finds relevant information from Sanskrit texts using semantic search
 3. **📝 Generator Agent** - Creates comprehensive answers with citations
+
+### Semantic Search with EmbeddingGemma
+
+The search system uses **Google's EmbeddingGemma** (300M parameters) running entirely in the browser:
+
+- **In-Browser Embeddings**: Transformers.js powers local embedding generation
+- **Privacy-First**: No data sent to external servers
+- **10,000+ Documents**: Sanskrit passages with 512-dimensional embeddings
+- **Multilingual**: Supports 100+ languages
+- **Fast**: Query embeddings generated in ~200-500ms after model load
+
+For details, see [EMBEDDINGGEMMA_INTEGRATION.md](./docs/EMBEDDINGGEMMA_INTEGRATION.md)
 
 ### Real-Time Feedback
 
@@ -261,6 +273,9 @@ ISC
 
 - [WebLLM](https://github.com/mlc-ai/web-llm) for browser-based LLM inference
 - [MLC LLM](https://mlc.ai/) for the underlying ML compilation technology
+- [Transformers.js](https://huggingface.co/docs/transformers.js) by HuggingFace for in-browser ML models
+- [EmbeddingGemma](https://huggingface.co/blog/embeddinggemma) by Google DeepMind for semantic embeddings
+- [Orama](https://oramasearch.com/) for fast in-memory vector search
 - [Vercel](https://vercel.com/) for Next.js
 
 ## 🐛 Troubleshooting
@@ -286,15 +301,43 @@ ISC
 
 For comprehensive troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 
+## 🧪 Testing
+
+### Test Semantic Search
+
+A dedicated test page is available to verify the EmbeddingGemma + Orama integration:
+
+1. **Start the dev server:**
+   ```bash
+   npm run dev
+   ```
+
+2. **Open the test page:**
+   Navigate to `http://localhost:3000/test-search`
+
+3. **Click "Initialize System"** to load the embedding model and search index
+
+4. **Enter a test query** (e.g., "fire sacrifice ritual") and click "Search"
+
+The test page provides:
+- Real-time initialization progress
+- Performance metrics (initialization, embedding, search times)
+- Detailed console output
+- Visual search results with scores and sources
+
+For detailed testing instructions, see [TESTING_SEARCH.md](./docs/TESTING_SEARCH.md)
+
 ## 📚 Documentation
 
 - **[MULTI_AGENT_SYSTEM.md](./docs/MULTI_AGENT_SYSTEM.md)**: Multi-agent architecture & design
+- **[EMBEDDINGGEMMA_INTEGRATION.md](./docs/EMBEDDINGGEMMA_INTEGRATION.md)**: In-browser semantic search with EmbeddingGemma
+- **[TESTING_SEARCH.md](./docs/TESTING_SEARCH.md)**: Testing semantic search functionality
 - **[FEATURES.md](./docs/FEATURES.md)**: Complete feature list
 - **[MODEL_CAPABILITIES.md](./docs/MODEL_CAPABILITIES.md)**: Streaming & tool call guide
 - **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)**: Technical deep dive
 - **[QUICK_START.md](./docs/QUICK_START.md)**: Getting started guide
 - **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)**: Deployment instructions
-- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**: Comprehensive troubleshooting
+- **[TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)**: Comprehensive troubleshooting
 
 ## 📚 Learn More
 

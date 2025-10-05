@@ -82,7 +82,7 @@ Output ONLY a JSON object with your classification decision.`;
           content: `I understand you're asking about Sanskrit literature. Let me search for relevant information...`,
           nextAgent: 'searcher',
           isComplete: false,
-          statusMessage: '🔍 Searching for relevant Sanskrit texts and information...',
+          statusMessage: 'Searching for relevant Sanskrit texts and information...',
         };
       } else {
         // Not Sanskrit related - respond directly
@@ -98,7 +98,7 @@ I can help you with:
 
 Is there anything related to Sanskrit literature I can help you with?`,
           isComplete: true,
-          statusMessage: '✅ Response complete',
+          statusMessage: 'Response complete',
         };
       }
     } catch (error) {
@@ -128,7 +128,7 @@ Is there anything related to Sanskrit literature I can help you with?`,
       content: `Found ${searchResults.length} relevant sources. Now analyzing and generating your answer...`,
       nextAgent: 'generator',
       isComplete: false,
-      statusMessage: '📝 Generating comprehensive answer...',
+      statusMessage: 'Generating comprehensive answer...',
     };
   }
 
@@ -139,7 +139,7 @@ Is there anything related to Sanskrit literature I can help you with?`,
     return {
       content: generatedContent,
       isComplete: true,
-      statusMessage: '✅ Answer complete',
+      statusMessage: 'Answer complete',
     };
   }
 
@@ -151,7 +151,7 @@ Is there anything related to Sanskrit literature I can help you with?`,
       content: `Refining search with additional context...`,
       nextAgent: 'searcher',
       isComplete: false,
-      statusMessage: `🔍 Searching with refined query: "${searchQuery}"...`,
+      statusMessage: `Searching with refined query: "${searchQuery}"...`,
       searchQuery,
     };
   }

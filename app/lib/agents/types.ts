@@ -26,7 +26,7 @@ export interface AgentMessage {
 export interface SearchResult {
   id: string;
   title: string;
-  content: string;
+  content?: string; // Make optional to handle null/undefined cases
   relevance: number;
   source?: string;
 }

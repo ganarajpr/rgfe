@@ -56,27 +56,19 @@ const AgentChatInterface = ({
     }
   };
 
-  const getAgentStatusBadge = () => {
+  const getAgentStatusText = () => {
     if (!currentAgent || !isProcessing) return null;
 
     const agentInfo = {
-      orchestrator: { label: 'Analyzing', color: 'bg-purple-100 text-purple-700', icon: '🤖' },
-      searcher: { label: 'Searching', color: 'bg-blue-100 text-blue-700', icon: '🔍' },
-      generator: { label: 'Generating', color: 'bg-green-100 text-green-700', icon: '📝' },
+      orchestrator: { label: 'Analyzing' },
+      searcher: { label: 'Searching' },
+      generator: { label: 'Generating' },
     };
 
     const info = agentInfo[currentAgent];
     
     return (
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${info.color}`}>
-        <span>{info.icon}</span>
-        <span>{info.label}</span>
-        <div className="flex gap-0.5">
-          <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-          <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-          <div className="w-1 h-1 bg-current rounded-full animate-bounce"></div>
-        </div>
-      </div>
+      <span className="text-xs text-gray-400">{info.label}...</span>
     );
   };
 
@@ -85,25 +77,20 @@ const AgentChatInterface = ({
       {/* Header */}
       <header className="border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
           <div>
-            <h1 className="font-semibold text-gray-900">Sanskrit Assistant</h1>
+            <h1 className="font-semibold text-gray-700">Sanskrit Assistant</h1>
             <div className="flex items-center gap-2">
               {modelName && (
-                <p className="text-xs text-gray-500">{modelName}</p>
+                <span className="text-xs text-gray-400">{modelName}</span>
               )}
-              {getAgentStatusBadge()}
+              {getAgentStatusText()}
             </div>
           </div>
         </div>
         
         <button
           onClick={onNewChat}
-          className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
         >
           New Chat
         </button>
@@ -114,37 +101,28 @@ const AgentChatInterface = ({
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full px-4">
             <div className="max-w-2xl text-center space-y-6">
-              <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
               <div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                  Welcome to Sanskrit Assistant
+                <h2 className="text-2xl font-semibold text-gray-600 mb-2">
+                  Sanskrit Assistant
                 </h2>
-                <p className="text-gray-600">
-                  Ask me anything about Sanskrit literature, texts, philosophy, and teachings.
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Powered by a multi-agent system for comprehensive answers
+                <p className="text-gray-500">
+                  Ask about Sanskrit literature, texts, philosophy, and teachings
                 </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-8">
                 {[
-                  { icon: '📖', text: 'Explain a Sanskrit text', action: 'Explain the concept of Dharma in the Bhagavad Gita' },
-                  { icon: '🕉️', text: 'Discuss philosophy', action: 'What are the main schools of Hindu philosophy?' },
-                  { icon: '📜', text: 'Explore ancient texts', action: 'Tell me about the Upanishads' },
-                  { icon: '🎭', text: 'Learn about epics', action: 'Summarize the story of the Mahabharata' },
+                  { text: 'Explain a Sanskrit text', action: 'Explain the concept of Dharma in the Bhagavad Gita' },
+                  { text: 'Discuss philosophy', action: 'What are the main schools of Hindu philosophy?' },
+                  { text: 'Explore ancient texts', action: 'Tell me about the Upanishads' },
+                  { text: 'Learn about epics', action: 'Summarize the story of the Mahabharata' },
                 ].map((suggestion) => (
                   <button
                     key={suggestion.action}
                     onClick={() => setInput(suggestion.action)}
-                    className="p-4 text-left rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                    className="p-4 text-left border border-gray-200 hover:border-gray-300 transition-colors"
                   >
-                    <div className="text-2xl mb-2">{suggestion.icon}</div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm text-gray-600">
                       {suggestion.text}
                     </div>
                   </button>
