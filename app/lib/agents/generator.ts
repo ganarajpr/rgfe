@@ -67,7 +67,7 @@ export class GeneratorAgent {
     }
 
     // Generate final answer
-    return await this.generateFinalAnswer(context.userQuery, searchResults);
+    return await this.generateFinalAnswer();
   }
 
   /**
@@ -174,10 +174,7 @@ Output ONLY a JSON object:
   /**
    * Generate the final comprehensive answer
    */
-  private async generateFinalAnswer(
-    userQuery: string,
-    searchResults: SearchResult[]
-  ): Promise<AgentResponse> {
+  private async generateFinalAnswer(): Promise<AgentResponse> {
     // Note: This method prepares the response but doesn't actually generate it.
     // The actual streaming happens in streamAnswer method.
     return {

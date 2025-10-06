@@ -33,8 +33,7 @@ export async function exportConversationToPDF(
 ): Promise<void> {
   const {
     title = 'RigVeda Assistant Conversation',
-    watermark = 'indhic.com',
-    includeMetadata = true
+    watermark = 'indhic.com'
   } = options;
 
   try {

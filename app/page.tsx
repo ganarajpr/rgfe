@@ -90,6 +90,10 @@ export default function Home() {
     await processUserMessage(message);
   };
 
+  const handleClearCache = async () => {
+    await clearModelCache();
+  };
+
   // Show loading screen during initial check or model loading
   if (isInitialCheck || isLoading) {
     return (
@@ -113,7 +117,7 @@ export default function Home() {
       isProcessing={isProcessing}
       currentAgent={currentAgent}
       onNewChat={handleNewChat}
-      onClearCache={clearModelCache}
+      onClearCache={handleClearCache}
       modelName={currentModel}
     />
   );

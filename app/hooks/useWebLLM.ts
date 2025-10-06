@@ -257,6 +257,7 @@ export const useWebLLM = () => {
       if (typeof window !== 'undefined' && 'webllm' in window) {
         try {
           // Use WebLLM's cache clearing API if available
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const webllm = (window as any).webllm;
           if (webllm && typeof webllm.clearCache === 'function') {
             await webllm.clearCache();
@@ -313,6 +314,7 @@ export const useWebLLM = () => {
       console.error('❌ Error clearing model cache:', error);
       return false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**

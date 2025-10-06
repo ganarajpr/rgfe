@@ -198,21 +198,22 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
           );
         }
 
-        // Step 3: Route to Generator
-        await processGeneratorFlow(userQuery, currentSearchResultsRef.current);
-      }
-    } catch (error) {
-      console.error('Multi-agent error:', error);
-      addMessage(
-        'I apologize, but I encountered an error processing your request. Please try again.',
-        'assistant',
-        'assistant'
-      );
-    } finally {
-      setCurrentAgent(null);
-      setIsProcessing(false);
+      // Step 3: Route to Generator
+      await processGeneratorFlow(userQuery, currentSearchResultsRef.current);
     }
-  }, [messages, addMessage, addStatusMessage]);
+  } catch (error) {
+    console.error('Multi-agent error:', error);
+    addMessage(
+      'I apologize, but I encountered an error processing your request. Please try again.',
+      'assistant',
+      'assistant'
+    );
+  } finally {
+    setCurrentAgent(null);
+    setIsProcessing(false);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [messages, addMessage, addStatusMessage]);
 
   /**
    * Process the generator flow (which may loop back to searcher)
