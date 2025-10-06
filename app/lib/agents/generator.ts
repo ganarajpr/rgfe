@@ -4,40 +4,63 @@ import { AgentContext, AgentResponse, SearchResult } from './types';
 
 const GENERATOR_SYSTEM_PROMPT = `You are a Generator Agent specialized in creating comprehensive answers about the RigVeda.
 
-Your role is to:
-1. Review ALL search results provided to you from multiple search queries
-2. Determine if the COMPLETE set of search results contains sufficient information to answer the user's query
-3. If insufficient, request additional search with specific refinement queries IN SANSKRIT/DEVANAGARI
-4. If sufficient, generate a comprehensive, well-structured answer with proper verse highlighting
+CORPUS KNOWLEDGE - The RigVeda:
+The search corpus contains verses from the RigVeda, the oldest of the four Vedas. It consists of:
+- 10 Mandalas (books) with 1,028 hymns (Suktas) containing 10,600+ verses (Richas)
+- Verses are in Vedic Sanskrit (Devanagari script)
+- Major deities: Agni (अग्नि), Indra (इन्द्र), Soma (सोम), Varuna (वरुण), Ushas (उषस्), etc.
+- Key concepts: Rita (ऋत - cosmic order), Yajna (यज्ञ - sacrifice), Dharma (धर्म)
+- Famous hymns: Nasadiya Sukta (10.129 - creation), Purusha Sukta (10.90), Gayatri Mantra (3.62.10)
+- Reference format: Mandala.Hymn.Verse (e.g., 10.129.1)
 
-When analyzing search results:
-- Review the COMPLETE list of results from all search queries
-- Check if they directly address the user's question
-- Identify any gaps in information
-- Determine if you need more specific or additional context
-- Consider if the verses and translations are sufficient for a complete answer
+Your role in the ITERATIVE SEARCH-GENERATION LOOP:
+1. ANALYZE search results to evaluate quality and sufficiency
+2. CHECK RELEVANCE SCORES - If scores are LOW (<0.3), make intelligent guesses for better search terms
+3. If INSUFFICIENT: Request ONE specific search with a RigVeda-contextual Sanskrit term
+4. If SUFFICIENT or loop limit reached: Generate the final comprehensive answer
 
-CRITICAL RULES: 
-- When requesting additional search, you MUST provide search terms in Sanskrit/Devanagari script (देवनागरी)
+ANALYSIS PHASE (when evaluating search results):
+- Review ALL search results AND their relevance scores
+- **LOW SCORES (<0.3)**: Results likely don't match - suggest alternative RigVeda-specific terms
+  Example: "Nasadiya Sukta" → suggest "नासदीय सूक्त" or "ऋग्वेद १०.१२९" or "सृष्टि सूक्त"
+  Example: "creation hymn" → suggest "नासदासीत्" (first word of the hymn) or "सृष्टि"
+- **MEDIUM SCORES (0.3-0.6)**: Results are relevant but may need refinement
+- **HIGH SCORES (>0.6)**: Results directly address the query
+- Check if results DIRECTLY address the user's question
+- Identify specific gaps in information
+- Consider the current iteration count (max 3 loops)
+
+When requesting additional search (especially for low scores):
+- Provide ONE focused search term in Sanskrit/Devanagari (देवनागरी)
+- Make KNOWLEDGEABLE GUESSES based on RigVeda context
+- Consider: deity names, hymn references, Sanskrit concepts, ritual terms
+- Think: "What would a RigVeda scholar search for to find this?"
+- Explain why current results are insufficient and what you're looking for
+
+INTELLIGENT SEARCH TERM GENERATION:
+- English deity name → Sanskrit name (e.g., "Fire God" → "अग्नि")
+- Concept → Sanskrit term (e.g., "cosmic order" → "ऋत")
+- Famous hymn → Direct Sanskrit or Mandala reference (e.g., "Nasadiya" → "नासदीय" or "मण्डल १०")
+- Ritual → Sanskrit ritual term (e.g., "sacrifice" → "यज्ञ")
+
+GENERATION PHASE (when creating the final answer):
+- Synthesize ALL search results gathered across all iterations
+- Generate a comprehensive, well-structured answer
+- Include verse citations with Mandala.Hymn.Verse references
+- Highlight important sections vs. supporting details
+- Use ONLY the information from the provided RigVeda verses
+
+CRITICAL RULES:
 - You MUST ONLY answer based on the RigVeda search results provided
-- NEVER use your own general knowledge or information from other Sanskrit texts
-- If search results do NOT contain sufficient information to answer the question, you should state that clearly
-- Comment on the currently returned verses and explain why they are insufficient
-- ONLY discuss the RigVeda - do NOT reference other Vedas, Upanishads, Puranas, or epics
+- NEVER use your own general knowledge or information from other texts
+- If results are insufficient even after 3 loops, state that clearly
+- ONLY discuss the RigVeda - NOT other Vedas, Upanishads, Puranas, or epics
+- When scores are low, use your RigVeda knowledge to suggest better search terms
+- Maintain scholarly rigor by only using verified sources
 
-Response format:
-- If need more search: Output JSON with { "needsMoreSearch": true, "searchQuery": "sanskrit terms in devanagari", "reasoning": "why" }
-- If ready to answer: Generate a detailed, accurate response ONLY from the provided search results
-- If insufficient info: State clearly that the available verses do not contain enough information to answer the question
-
-Your answers should:
-- Be STRICTLY based on the provided RigVeda search results
-- Include verses and translations with proper highlighting
-- Cite specific mandalas, suktas, and verse numbers when possible
-- Be comprehensive yet clear
-- NEVER include information not found in the search results
-- NEVER reference other Sanskrit texts (Upanishads, Mahabharata, etc.)
-- Maintain scholarly rigor by only using verified sources from the RigVeda`;
+Response formats:
+- For analysis: JSON with { "needsMoreSearch": boolean, "searchRequest": "sanskrit term", "reasoning": "explanation including score analysis" }
+- For final answer: Comprehensive markdown response with citations and proper structure`;
 
 export class GeneratorAgent {
   private readonly model: LanguageModelV2;
@@ -53,13 +76,15 @@ export class GeneratorAgent {
   async generate(
     context: AgentContext, 
     searchResults: SearchResult[],
-    iterationCount: number = 0
+    iterationCount: number = 0,
+    previousSearchTerms: string[] = []
   ): Promise<AgentResponse> {
     // First, check if we need more information
     const needsMoreInfo = await this.checkIfNeedsMoreSearch(
       context.userQuery,
       searchResults,
-      iterationCount
+      iterationCount,
+      previousSearchTerms
     );
 
     if (needsMoreInfo && iterationCount < this.maxSearchIterations) {
@@ -76,35 +101,82 @@ export class GeneratorAgent {
   private async checkIfNeedsMoreSearch(
     userQuery: string,
     searchResults: SearchResult[],
-    iterationCount: number
+    iterationCount: number,
+    previousSearchTerms: string[] = []
   ): Promise<AgentResponse | null> {
     if (iterationCount >= this.maxSearchIterations) {
       console.log(`⚠️ Max search iterations (${this.maxSearchIterations}) reached, proceeding with available results`);
       return null; // Max iterations reached, proceed with what we have
     }
 
+    // Calculate average relevance score
+    const avgScore = searchResults.length > 0 
+      ? searchResults.reduce((sum, r) => sum + r.relevance, 0) / searchResults.length 
+      : 0;
+    const maxScore = searchResults.length > 0 
+      ? Math.max(...searchResults.map(r => r.relevance))
+      : 0;
+    
+    // Determine score quality labels
+    const getScoreLabel = (score: number): string => {
+      if (score < 0.3) return '❌ LOW - Results likely poor match';
+      if (score < 0.6) return '⚠️ MEDIUM - Relevant but could be better';
+      return '✅ HIGH - Strong match';
+    };
+    
+    const getResultLabel = (score: number): string => {
+      if (score < 0.3) return '❌ LOW';
+      if (score < 0.6) return '⚠️ MEDIUM';
+      return '✅ HIGH';
+    };
+    
     const analysisPrompt = `${GENERATOR_SYSTEM_PROMPT}
 
 User Query: ${userQuery}
 
-Available Search Results (from multiple search queries):
+Current Iteration: ${iterationCount + 1} of ${this.maxSearchIterations + 1}
+
+RELEVANCE SCORE ANALYSIS:
+- Average Score: ${(avgScore * 100).toFixed(1)}% (${getScoreLabel(avgScore)})
+- Highest Score: ${(maxScore * 100).toFixed(1)}%
+- Total Results: ${searchResults.length}
+
+Available Search Results (gathered so far):
 ${searchResults.map((r, i) => `
-${i + 1}. ${r.title} (relevance: ${r.relevance})
-   ${r.content}
-   Source: ${r.source}
+${i + 1}. ${r.title}
+   Relevance: ${(r.relevance * 100).toFixed(1)}% ${getResultLabel(r.relevance)}
+   Text: ${r.content?.substring(0, 200)}...
+   Source: ${r.source || 'RigVeda'}
 `).join('\n')}
 
-Analyze if these search results provide sufficient information to comprehensively answer the user's query.
+TASK: Analyze if these search results provide sufficient information to answer the user's query comprehensively.
 
-IMPORTANT: Your response will NOT be shown to the user - this is internal analysis only.
+PREVIOUS SEARCH TERMS USED (DO NOT REPEAT THESE):
+${previousSearchTerms.length > 0 ? previousSearchTerms.map((term, i) => `${i + 1}. "${term}"`).join('\n') : 'None (this is the first search)'}
+
+CRITICAL SCORING GUIDANCE:
+- If average score < 0.3: Results are likely NOT relevant. Make an INTELLIGENT GUESS for a better RigVeda-specific search term
+  * Think: What Sanskrit term, deity name, or Mandala reference would a RigVeda scholar use?
+  * Example: "Nasadiya Sukta" → try "नासदीय" or "सृष्टि सूक्त" or "मण्डल १०"
+- If scores are decent but content doesn't answer the question: Request specific missing aspect
+- If scores are good and content is relevant: Proceed with answer generation
+
+IMPORTANT: 
+- This is internal analysis - NOT shown to user
+- You have ${this.maxSearchIterations - iterationCount} more search opportunities
+- Be strategic: use RigVeda knowledge to make smart search term suggestions
+- Focus on Sanskrit terms that would actually appear in the RigVeda corpus
+- **DO NOT suggest search terms that were already used** (see list above)
+- Make sure your searchRequest uses VALID UTF-8 Devanagari characters
+- Use Devanagari numerals carefully: १ (1), २ (2), ३ (3), ४ (4), ५ (5), ६ (6), ७ (7), ८ (8), ९ (9), ० (0)
+- If referencing Mandala numbers, you can use either: "मण्डल 10" or "मण्डल १०" (both valid)
+- Avoid mixing scripts unnecessarily - keep search terms focused
 
 Output ONLY a JSON object:
 {
   "needsMoreSearch": boolean,
-  "searchQuery": "specific refined Sanskrit/Devanagari query if needed (देवनागरी में)",
-  "reasoning": "explanation of what's missing or why results are sufficient",
-  "hasSufficientInfo": boolean,
-  "canAnswerQuestion": boolean
+  "searchRequest": "ONE NEW focused Sanskrit/Devanagari search term not in the list above",
+  "reasoning": "brief explanation including score analysis and what you're looking for"
 }`;
 
     try {
@@ -119,7 +191,7 @@ Output ONLY a JSON object:
         fullResponse += chunk;
       }
 
-      console.log('🤖 Generator analysis response:', fullResponse);
+      console.log('🤖 Generator analysis:', fullResponse.substring(0, 200));
 
       // Parse analysis
       let analysis;
@@ -137,33 +209,43 @@ Output ONLY a JSON object:
         return null;
       }
 
-      // Check if we can answer the question with current results
-      if (analysis.canAnswerQuestion === false || analysis.hasSufficientInfo === false) {
-        console.log('❌ Insufficient information to answer question');
-        // Don't request more search, just proceed with generation which will explain insufficiency
-        return null;
-      }
-
-      // Only request more search if explicitly needed AND we have a Sanskrit query AND haven't reached max iterations
-      if (analysis.needsMoreSearch && analysis.searchQuery && iterationCount < this.maxSearchIterations) {
-        // Ensure the search query contains Devanagari script
-        const hasDevanagari = /[\u0900-\u097F]/.test(analysis.searchQuery);
-        if (hasDevanagari) {
-          console.log(`🔄 Requesting additional search: "${analysis.searchQuery}"`);
+      // Check if more search is needed
+      if (analysis.needsMoreSearch && analysis.searchRequest && iterationCount < this.maxSearchIterations) {
+        // Ensure the search request contains Devanagari script
+        const hasDevanagari = /[\u0900-\u097F]/.test(analysis.searchRequest);
+        
+        // Check for corrupted characters (replacement character or null bytes)
+        const hasCorruption = /[\uFFFD\u0000]/.test(analysis.searchRequest);
+        
+        if (hasDevanagari && !hasCorruption) {
+          // Clean the search request to ensure proper UTF-8
+          // Remove replacement character (U+FFFD) and null bytes (U+0000)
+          const cleanedSearchRequest = analysis.searchRequest
+            .replace(/\uFFFD/g, '')
+            .replace(/\u0000/g, '')
+            .trim();
+          
+          console.log(`🔄 Requesting additional search: "${cleanedSearchRequest}"`);
+          console.log(`   Reasoning: ${analysis.reasoning}`);
           return {
-            content: '', // Internal only, not shown to user
+            content: analysis.reasoning, // Used internally for status
             nextAgent: 'searcher',
             isComplete: false,
             requiresMoreSearch: true,
-            searchQuery: analysis.searchQuery,
-            statusMessage: `Searching for additional context: "${analysis.searchQuery}"`,
+            searchQuery: cleanedSearchRequest,
+            statusMessage: `Need more information: ${analysis.reasoning}`,
           };
         } else {
-          console.log('⚠️ Search query not in Sanskrit, proceeding with available results');
+          if (hasCorruption) {
+            console.log('⚠️ Search request contains corrupted characters, proceeding with available results');
+          } else {
+            console.log('⚠️ Search request not in Sanskrit, proceeding with available results');
+          }
           return null;
         }
       }
 
+      console.log(`✅ Sufficient information available: ${analysis.reasoning || 'proceeding with generation'}`);
       return null; // Results are sufficient
     } catch (error) {
       console.error('❌ Generator analysis error:', error);

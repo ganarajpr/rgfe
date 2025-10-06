@@ -6,7 +6,16 @@ export type MessageType =
   | 'assistant'      // Final assistant response
   | 'agent-internal' // Internal agent-to-agent communication
   | 'thinking'       // Agent thinking/processing status
-  | 'verses';        // Search results/verses display
+  | 'verses'         // Search results/verses display
+  | 'search-status'; // Search iteration status
+
+export type ImportanceLevel = 'high' | 'medium' | 'low';
+
+export interface HighlightSection {
+  start: number;
+  end: number;
+  importance: ImportanceLevel;
+}
 
 export interface AgentMessage {
   id: string;
@@ -21,6 +30,10 @@ export interface AgentMessage {
     isComplete?: boolean;
     requiresMoreSearch?: boolean;
     searchQuery?: string;
+    searchIteration?: number;
+    maxSearchIterations?: number;
+    highlightSections?: HighlightSection[];
+    verseImportance?: Record<string, ImportanceLevel>; // Map verse ID to importance
   };
 }
 
@@ -48,5 +61,7 @@ export interface AgentResponse {
   searchResults?: SearchResult[];
   requiresMoreSearch?: boolean;
   searchQuery?: string;
+  highlightSections?: HighlightSection[];
+  verseImportance?: Record<string, ImportanceLevel>;
 }
 

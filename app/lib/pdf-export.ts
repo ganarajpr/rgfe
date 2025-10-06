@@ -188,13 +188,36 @@ export async function exportConversationToPDF(
         pdf.text(lines, margin, currentY);
         currentY += lineHeight * lines.length + 3;
       } else {
-        // Regular message content
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(55, 65, 81); // Dark gray (text-gray-700)
+        // Regular message content with styled backgrounds
         const content = message.content;
-        const lines = pdf.splitTextToSize(content, contentWidth);
-        pdf.text(lines, margin, currentY);
-        currentY += lineHeight * lines.length;
+        const lines = pdf.splitTextToSize(content, contentWidth - 8);
+        const contentHeight = lineHeight * lines.length + 6;
+        
+        if (message.role === 'user') {
+          // User messages: Dark background with light text (matching screen)
+          pdf.setFillColor(31, 41, 55); // bg-gray-800
+          pdf.roundedRect(margin, currentY - 4, contentWidth, contentHeight, 2, 2, 'F');
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(243, 244, 246); // Light text (text-gray-100)
+          pdf.text(lines, margin + 4, currentY);
+          currentY += lineHeight * lines.length + 4;
+        } else if (message.role === 'assistant') {
+          // Assistant messages: Light bordered background (matching screen)
+          pdf.setDrawColor(229, 231, 235); // border-gray-200
+          pdf.setFillColor(249, 250, 251); // bg-gray-50
+          pdf.setLineWidth(1);
+          pdf.roundedRect(margin, currentY - 4, contentWidth, contentHeight, 2, 2, 'FD');
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(55, 65, 81); // text-gray-700
+          pdf.text(lines, margin + 4, currentY);
+          currentY += lineHeight * lines.length + 4;
+        } else {
+          // Other messages: Default styling
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(55, 65, 81); // Dark gray (text-gray-700)
+          pdf.text(lines, margin, currentY);
+          currentY += lineHeight * lines.length;
+        }
       }
 
       currentY += sectionSpacing;

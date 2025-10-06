@@ -22,7 +22,7 @@ export class SearchTool {
   constructor(config: SearchToolConfig) {
     this.config = {
       defaultLimit: 10,
-      minScore: 0.1,
+      minScore: 0.0, // Use 0.0 for cosine similarity (matches cli-search.js behavior)
       useEmbeddings: true, // Default to using embeddings
       ...config,
     };

@@ -29,6 +29,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
   const searchIterationRef = useRef<number>(0);
   const currentSearchResultsRef = useRef<SearchResult[]>([]);
+  const searchTermsHistoryRef = useRef<string[]>([]); // Track search terms to avoid repeats
 
   /**
    * Add a message to the conversation
@@ -93,6 +94,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     setIsProcessing(true);
     searchIterationRef.current = 0;
     currentSearchResultsRef.current = [];
+    searchTermsHistoryRef.current = []; // Reset search history for new query
 
     try {
       // Add user message
@@ -170,6 +172,9 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
         const searchResponse = await searcherRef.current.search(searchContext);
         currentSearchResultsRef.current = searchResponse.searchResults || [];
+        
+        // Track the initial search term (extract from user query)
+        searchTermsHistoryRef.current.push(userQuery);
 
         // Log searcher response
         console.log('🔍 SEARCHER RESPONSE');
@@ -248,7 +253,8 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     const generatorResponse = await generatorRef.current.generate(
       generatorContext,
       searchResults,
-      searchIterationRef.current
+      searchIterationRef.current,
+      searchTermsHistoryRef.current // Pass search history
     );
 
     // Log generator response
@@ -276,35 +282,53 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         throw new Error('Searcher agent not initialized');
       }
 
-      // Log refined search request
+      // Log additional search request
       console.log('═══════════════════════════════════════════════════════════');
-      console.log(`🔍 REFINED SEARCHER REQUEST (Iteration ${searchIterationRef.current})`);
+      console.log(`🔍 ADDITIONAL SEARCH REQUEST (Iteration ${searchIterationRef.current})`);
       console.log('═══════════════════════════════════════════════════════════');
       console.log('Original Query:', userQuery);
-      console.log('Refined Search Term:', generatorResponse.searchQuery || '');
+      console.log('Search Request:', generatorResponse.searchQuery || '');
       console.log('Previous Results Count:', currentSearchResultsRef.current.length);
-      console.log(`Max Iterations: 3 (current: ${searchIterationRef.current})`);
+      console.log(`Iteration: ${searchIterationRef.current} of 3`);
       console.log('───────────────────────────────────────────────────────────');
 
-      const refinedSearchResponse = await searcherRef.current.refineSearch(
-        generatorContext,
-        generatorResponse.searchQuery || '',
+      // Add status message with iteration info
+      addMessage(
+        `Searching for more information (${searchIterationRef.current}/3)...`,
+        'searcher',
+        'search-status',
+        { 
+          searchIteration: searchIterationRef.current,
+          maxSearchIterations: 3,
+          searchQuery: generatorResponse.searchQuery 
+        }
+      );
+
+      const newSearchTerm = generatorResponse.searchQuery || '';
+      
+      // Track this search term
+      if (newSearchTerm && !searchTermsHistoryRef.current.includes(newSearchTerm)) {
+        searchTermsHistoryRef.current.push(newSearchTerm);
+        console.log(`📋 Search terms history: [${searchTermsHistoryRef.current.join(', ')}]`);
+      }
+      
+      const additionalSearchResponse = await searcherRef.current.searchWithContext(
+        newSearchTerm,
         currentSearchResultsRef.current
       );
 
-      currentSearchResultsRef.current = refinedSearchResponse.searchResults || [];
+      currentSearchResultsRef.current = additionalSearchResponse.searchResults || [];
       
-      // Log refined search response
-      console.log('🔍 REFINED SEARCHER RESPONSE');
+      // Log additional search response
+      console.log('🔍 ADDITIONAL SEARCH RESPONSE');
       console.log('───────────────────────────────────────────────────────────');
-      console.log('Refined Search Term:', generatorResponse.searchQuery || '');
+      console.log('Search Request:', generatorResponse.searchQuery || '');
       console.log('Total Results Now:', currentSearchResultsRef.current.length);
-      console.log('Status:', refinedSearchResponse.statusMessage);
+      console.log('Status:', additionalSearchResponse.statusMessage);
       console.log('═══════════════════════════════════════════════════════════\n');
       
-      if (refinedSearchResponse.statusMessage) {
-        const refinedTerm = generatorResponse.searchQuery || '';
-        addStatusMessage(`Refined search: "${refinedTerm}"`, 'searcher');
+      if (additionalSearchResponse.statusMessage) {
+        addStatusMessage(additionalSearchResponse.statusMessage, 'searcher');
       }
 
       // Loop back to generator with new results
@@ -376,6 +400,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     setIsProcessing(false);
     searchIterationRef.current = 0;
     currentSearchResultsRef.current = [];
+    searchTermsHistoryRef.current = []; // Clear search history
   }, []);
 
   return {

@@ -20,17 +20,26 @@ export class SearcherAgent {
   }
 
   /**
-   * Translate English query to Sanskrit search terms
+   * Translate English query to Sanskrit search terms with RigVeda context
    */
   private async translateToSanskrit(englishQuery: string): Promise<string> {
     try {
       console.log(`🌐 Translating query to Sanskrit: "${englishQuery}"`);
       
-      const prompt = `You are a Sanskrit scholar. Translate the following English query into relevant Sanskrit/Devanagari search terms that would be found in Sanskrit texts.
+      const prompt = `You are a RigVeda scholar. Translate the following query into Sanskrit/Devanagari search terms that would be found in the RigVeda corpus.
+
+RIGVEDA CONTEXT:
+- Corpus contains 10 Mandalas with hymns to deities like Agni (अग्नि), Indra (इन्द्र), Soma (सोम), Varuna (वरुण)
+- Key concepts: Rita (ऋत), Yajna (यज्ञ), Dharma (धर्म)
+- Famous hymns: Nasadiya Sukta (नासदीय सूक्त), Purusha Sukta (पुरुष सूक्त)
+- Written in Vedic Sanskrit/Devanagari script
 
 User Query: ${englishQuery}
 
-Provide ONLY the Sanskrit/Devanagari keywords (2-5 key terms), separated by spaces. Do not provide explanations or transliterations, only Devanagari script.
+Generate 2-5 relevant Sanskrit/Devanagari keywords that would help find this topic in the RigVeda.
+Think: What Sanskrit terms would actually appear in RigVeda verses?
+
+Provide ONLY the Sanskrit/Devanagari keywords separated by spaces. No explanations, only Devanagari script.
 
 Sanskrit keywords:`;
 
@@ -64,7 +73,7 @@ Sanskrit keywords:`;
       const searchTool = getSearchTool({
         binaryFilePath: '/smrithi-rgveda-embgemma-512d.bin',
         defaultLimit: 10,
-        minScore: 0.1,
+        minScore: 0.0, // Use 0.0 like cli-search.js for cosine similarity
         useEmbeddings: true, // Enable semantic vector search with EmbeddingGemma
       });
       
@@ -78,67 +87,66 @@ Sanskrit keywords:`;
   }
 
   /**
-   * Generate multiple search terms/phrases for comprehensive search IN SANSKRIT
+   * Generate a single focused search term/phrase IN SANSKRIT based on the request
+   * This is called by the orchestrator with specific search context
    */
-  private async generateSearchTerms(userQuery: string): Promise<string[]> {
+  private async generateSearchTerm(searchRequest: string): Promise<string> {
     try {
-      console.log(`🧠 Generating multiple Sanskrit search terms for: "${userQuery}"`);
+      console.log(`🧠 Generating Sanskrit search term for: "${searchRequest}"`);
       
-      const prompt = `You are a RigVeda expert. For the given user query, generate 2-3 different search terms or phrases IN SANSKRIT/DEVANAGARI SCRIPT that would help find comprehensive information about the topic in the RigVeda.
+      const prompt = `You are a RigVeda scholar and expert. For the given search request, generate ONE focused search term or phrase IN SANSKRIT/DEVANAGARI SCRIPT that would help find relevant information in the RigVeda corpus.
 
-User Query: ${userQuery}
+RIGVEDA CORPUS KNOWLEDGE:
+- 10 Mandalas (books) containing hymns to various deities
+- Major deities: Agni (अग्नि - fire), Indra (इन्द्र - thunder), Soma (सोम - sacred plant), Varuna (वरुण - cosmic order), Ushas (उषस् - dawn)
+- Key concepts: Rita (ऋत - cosmic order), Yajna (यज्ञ - sacrifice), Brahman (ब्रह्मन्), Atman (आत्मन्)
+- Famous hymns: Nasadiya/Nasadiya Sukta (नासदीय सूक्त - creation hymn in Mandala 10.129), Purusha Sukta (पुरुष सूक्त - cosmic being)
+- Written in Vedic Sanskrit with Devanagari script
 
-IMPORTANT: 
-- Generate ALL search terms in Sanskrit/Devanagari script (देवनागरी)
-- DO NOT use English or transliteration
-- Focus on key Sanskrit terms that would appear in the RigVeda (Vedic Sanskrit)
+Search Request: ${searchRequest}
 
-Generate 2-3 different search approaches in Sanskrit:
-1. Direct Sanskrit term for the main concept
-2. Alternative Sanskrit phrase or related concept
-3. Specific Sanskrit aspect or detail (if applicable)
+THINK: What Sanskrit term, deity name, concept, or phrase would ACTUALLY appear in RigVeda verses for this topic?
+- For deity names: Use Sanskrit (e.g., "Agni" → "अग्नि")
+- For concepts: Use Vedic Sanskrit terms (e.g., "cosmic order" → "ऋत")
+- For famous hymns: Use Sanskrit name or key phrase (e.g., "Nasadiya" → "नासदीय" or "नासदासीत्")
+- For rituals: Use Sanskrit ritual terms (e.g., "sacrifice" → "यज्ञ")
 
-Return ONLY the Sanskrit search terms in Devanagari script, one per line, without explanations or numbering.
+Generate ONE focused Sanskrit/Devanagari search term that would find this in the RigVeda.
+Return ONLY the Sanskrit search term in Devanagari script, without explanations or formatting.
 
-Sanskrit search terms:`;
+Sanskrit search term:`;
 
       const result = await generateText({
         model: this.model,
         prompt,
-        temperature: 0.4,
+        temperature: 0.3,
       });
 
-      const searchTerms = (result.text || '')
-        .split('\n')
-        .map(term => term.trim())
-        .filter(term => term.length > 0 && /[\u0900-\u097F]/.test(term)) // Only keep terms with Devanagari
-        .slice(0, 3); // Limit to 3 terms
+      const searchTerm = (result.text || '').trim();
 
-      // If we got Sanskrit terms, use them; otherwise translate the query
-      if (searchTerms.length > 0) {
-        console.log(`   Generated ${searchTerms.length} Sanskrit search terms:`);
-        searchTerms.forEach((term, i) => {
-          console.log(`   ${i + 1}. "${term}"`);
-        });
-        return searchTerms;
+      // Check if we got Devanagari script
+      if (searchTerm && /[\u0900-\u097F]/.test(searchTerm)) {
+        console.log(`   Generated Sanskrit search term: "${searchTerm}"`);
+        return searchTerm;
       } else {
-        console.log('   No Sanskrit terms generated, attempting translation...');
-        const sanskritQuery = await this.translateToSanskrit(userQuery);
-        return [sanskritQuery];
+        console.log('   No Sanskrit term generated, attempting translation...');
+        const sanskritQuery = await this.translateToSanskrit(searchRequest);
+        return sanskritQuery;
       }
     } catch (error) {
-      console.error('❌ Failed to generate search terms:', error);
+      console.error('❌ Failed to generate search term:', error);
       // Try to translate as fallback
-      const sanskritQuery = await this.translateToSanskrit(userQuery);
-      return [sanskritQuery];
+      const sanskritQuery = await this.translateToSanskrit(searchRequest);
+      return sanskritQuery;
     }
   }
 
   /**
-   * Perform search based on user query with multiple search terms
+   * Perform a single focused search based on the search request
+   * The orchestrator provides what should be searched
    */
-  async search(context: AgentContext, customSearchQuery?: string): Promise<AgentResponse> {
-    const queryToSearch = customSearchQuery || context.userQuery;
+  async search(context: AgentContext, searchRequest?: string): Promise<AgentResponse> {
+    const requestToSearch = searchRequest || context.userQuery;
 
     try {
       // Ensure search tool is initialized
@@ -146,61 +154,45 @@ Sanskrit search terms:`;
         await this.initializeSearchTool();
       }
 
-      // Generate multiple search terms
-      const searchTerms = await this.generateSearchTerms(queryToSearch);
+      // Generate single focused search term
+      const searchTerm = await this.generateSearchTerm(requestToSearch);
       
       // Get the search tool
       const searchTool = getSearchTool();
       
-      // Perform searches with each term
-      const allSearchResults: SearchResult[] = [];
-      const searchTermResults: { term: string; results: SearchResult[] }[] = [];
-
-      for (let i = 0; i < searchTerms.length; i++) {
-        const searchTerm = searchTerms[i];
-        
-        console.log(`🔍 Search ${i + 1}/${searchTerms.length}: "${searchTerm}"`);
-        
-        // Notify coordinator about current search
-        if (this.coordinatorCallback) {
-          this.coordinatorCallback(`Searching: "${searchTerm}" (${i + 1}/${searchTerms.length})`);
-        }
-
-        try {
-          const searchResults = await searchTool.search(searchTerm, 8);
-          
-          console.log(`   ✅ Found ${searchResults.length} results`);
-          
-          // Store results for this term
-          searchTermResults.push({
-            term: searchTerm,
-            results: searchResults
-          });
-          
-          // Add unique results to combined list
-          const existingIds = new Set(allSearchResults.map(r => r.id));
-          const uniqueResults = searchResults.filter(r => !existingIds.has(r.id));
-          allSearchResults.push(...uniqueResults);
-          
-        } catch (error) {
-          console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
-        }
+      console.log(`🔍 Performing search with term: "${searchTerm}"`);
+      
+      // Notify coordinator about search
+      if (this.coordinatorCallback) {
+        this.coordinatorCallback(`Searching: "${searchTerm}"`);
       }
 
-      // Log comprehensive results
+      let searchResults: SearchResult[] = [];
+      try {
+        searchResults = await searchTool.search(searchTerm, 10);
+        console.log(`   ✅ Found ${searchResults.length} results`);
+      } catch (error) {
+        console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
+      }
+
+      // Log search results
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('🔍 COMPREHENSIVE SEARCH RESULTS');
+      console.log('🔍 SEARCH RESULTS');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log(`Total unique results: ${allSearchResults.length}`);
-      searchTermResults.forEach((termResult, i) => {
-        console.log(`Term ${i + 1}: "${termResult.term}" → ${termResult.results.length} results`);
-      });
+      console.log(`Search term: "${searchTerm}"`);
+      console.log(`Results found: ${searchResults.length}`);
+      if (searchResults.length > 0) {
+        console.log('Top results:');
+        searchResults.slice(0, 3).forEach((result, i) => {
+          console.log(`  ${i + 1}. [${result.relevance.toFixed(3)}] ${result.title}`);
+        });
+      }
       console.log('═══════════════════════════════════════════════════════════\n');
 
-      if (allSearchResults.length === 0) {
-        console.log('⚠️ No search results found with any search term');
+      if (searchResults.length === 0) {
+        console.log('⚠️ No search results found');
         return {
-          content: 'No results found in the Sanskrit text corpus for this query.',
+          content: 'No results found in the RigVeda corpus for this search.',
           nextAgent: 'generator',
           isComplete: false,
           searchResults: [],
@@ -209,18 +201,18 @@ Sanskrit search terms:`;
       }
 
       return {
-        content: `Found ${allSearchResults.length} relevant passages from Sanskrit texts using ${searchTerms.length} different search approaches.`,
+        content: `Found ${searchResults.length} relevant verses from the RigVeda.`,
         nextAgent: 'generator',
         isComplete: false,
-        searchResults: allSearchResults,
-        statusMessage: `Found ${allSearchResults.length} relevant passages`,
+        searchResults: searchResults,
+        statusMessage: `Found ${searchResults.length} relevant verses`,
       };
     } catch (error) {
       console.error('❌ Searcher error:', error);
       
       // Fallback to simulated results if search fails
       console.log('⚠️ Falling back to simulated search results');
-      const fallbackResults = this.createFallbackResults(queryToSearch);
+      const fallbackResults = this.createFallbackResults(requestToSearch);
       
       return {
         content: 'Search completed (using fallback results)',
@@ -255,55 +247,38 @@ Sanskrit search terms:`;
   }
 
   /**
-   * Perform refined search with additional context
+   * Perform additional search with new context from generator
+   * This is called when the generator determines it needs more information
    */
-  async refineSearch(
-    context: AgentContext, 
-    additionalContext: string,
+  async searchWithContext(
+    searchRequest: string,
     previousResults: SearchResult[]
   ): Promise<AgentResponse> {
-    const refinedQuery = additionalContext;
-    
     try {
       // Ensure search tool is initialized
       if (!this.searchToolInitialized) {
         await this.initializeSearchTool();
       }
 
+      // Generate focused search term for this request
+      const searchTerm = await this.generateSearchTerm(searchRequest);
+      
       // Get the search tool
       const searchTool = getSearchTool();
 
-      // Use the refined query directly for semantic vector search
-      // The embedding model will understand the context regardless of language
-      console.log(`🔍 Refined semantic vector search for: "${refinedQuery}"`);
-      const newSearchResults = await searchTool.search(refinedQuery, 5);
+      console.log(`🔍 Additional search with term: "${searchTerm}"`);
+      
+      // Notify coordinator
+      if (this.coordinatorCallback) {
+        this.coordinatorCallback(`Additional search: "${searchTerm}"`);
+      }
 
-      // If no results, try with Sanskrit translation as fallback
-      if (newSearchResults.length === 0) {
-        console.log('🔄 No results with semantic search, trying Sanskrit translation...');
-        const hasDevanagari = /[\u0900-\u097F]/.test(refinedQuery);
-        
-        if (!hasDevanagari) {
-          const sanskritQuery = await this.translateToSanskrit(refinedQuery);
-          console.log(`   Sanskrit translation: "${sanskritQuery}"`);
-          const fallbackResults = await searchTool.search(sanskritQuery, 5);
-          
-          if (fallbackResults.length > 0) {
-            const previousIds = new Set(previousResults.map(r => r.id));
-            const uniqueNewResults = fallbackResults.filter(r => !previousIds.has(r.id));
-            const allResults = [...previousResults, ...uniqueNewResults];
-            
-            console.log(`✅ Found ${uniqueNewResults.length} new results with Sanskrit translation (${allResults.length} total)`);
-            
-            return {
-              content: `Found ${uniqueNewResults.length} additional passages.`,
-              nextAgent: 'generator',
-              isComplete: false,
-              searchResults: allResults,
-              statusMessage: `Found ${uniqueNewResults.length} additional passages`,
-            };
-          }
-        }
+      let newSearchResults: SearchResult[] = [];
+      try {
+        newSearchResults = await searchTool.search(searchTerm, 8);
+        console.log(`   ✅ Found ${newSearchResults.length} results`);
+      } catch (error) {
+        console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
       }
 
       // Filter out duplicates based on ID
@@ -313,23 +288,29 @@ Sanskrit search terms:`;
       // Combine with previous results
       const allResults = [...previousResults, ...uniqueNewResults];
 
-      console.log(`✅ Found ${uniqueNewResults.length} new results (${allResults.length} total)`);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🔍 ADDITIONAL SEARCH RESULTS');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`Search term: "${searchTerm}"`);
+      console.log(`New results: ${uniqueNewResults.length}`);
+      console.log(`Total results: ${allResults.length}`);
+      console.log('═══════════════════════════════════════════════════════════\n');
 
       return {
-        content: `Found ${uniqueNewResults.length} additional passages.`,
+        content: `Found ${uniqueNewResults.length} additional verses from the RigVeda.`,
         nextAgent: 'generator',
         isComplete: false,
         searchResults: allResults,
-        statusMessage: `Found ${uniqueNewResults.length} additional passages`,
+        statusMessage: `Found ${uniqueNewResults.length} new verses (${allResults.length} total)`,
       };
     } catch (error) {
-      console.error('❌ Searcher refinement error:', error);
+      console.error('❌ Searcher additional search error:', error);
       return {
-        content: 'Error performing refined search',
+        content: 'Error performing additional search',
         nextAgent: 'generator',
         isComplete: false,
         searchResults: previousResults, // Return previous results on error
-        statusMessage: 'Refined search failed, using previous results',
+        statusMessage: 'Additional search failed, using previous results',
       };
     }
   }
