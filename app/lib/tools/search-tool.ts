@@ -174,6 +174,7 @@ export class SearchTool {
       content: result.text,
       relevance: result.score,
       source: result.book,
+      bookContext: result.bookContext, // Pass through the verse reference
     }));
   }
 

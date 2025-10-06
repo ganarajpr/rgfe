@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sanskrit Assistant",
-  description: "A fully client-side AI assistant for Sanskrit literature, texts, philosophy, and teachings",
+  title: "RigVeda Assistant",
+  description: "A fully client-side AI assistant for exploring the RigVeda - hymns, verses, deities, rituals, and Vedic teachings",
 };
 
 export default function RootLayout({

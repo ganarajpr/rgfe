@@ -56,11 +56,11 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
             
             {searchResults.length > 0 && (
               <div className="space-y-3">
-                {searchResults.map((result, index) => (
+                {searchResults.map((result) => (
                   <div key={result.id} className="bg-white p-3 rounded border border-blue-200">
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-xs font-medium text-blue-600">
-                        Verse {index + 1}
+                        {result.bookContext || result.title || 'Verse'}
                       </span>
                       <span className="text-xs text-gray-500">
                         {(result.relevance * 100).toFixed(1)}% match
@@ -71,7 +71,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
                         Source: {result.source}
                       </div>
                     )}
-                    <div className="text-sm text-gray-700 leading-relaxed">
+                    <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
                       {result.content || result.title || 'No content available'}
                     </div>
                   </div>

@@ -84,14 +84,14 @@ Sanskrit keywords:`;
     try {
       console.log(`🧠 Generating multiple Sanskrit search terms for: "${userQuery}"`);
       
-      const prompt = `You are a Sanskrit literature expert. For the given user query, generate 2-3 different search terms or phrases IN SANSKRIT/DEVANAGARI SCRIPT that would help find comprehensive information about the topic in Sanskrit texts.
+      const prompt = `You are a RigVeda expert. For the given user query, generate 2-3 different search terms or phrases IN SANSKRIT/DEVANAGARI SCRIPT that would help find comprehensive information about the topic in the RigVeda.
 
 User Query: ${userQuery}
 
 IMPORTANT: 
 - Generate ALL search terms in Sanskrit/Devanagari script (देवनागरी)
 - DO NOT use English or transliteration
-- Focus on key Sanskrit terms that would appear in classical texts
+- Focus on key Sanskrit terms that would appear in the RigVeda (Vedic Sanskrit)
 
 Generate 2-3 different search approaches in Sanskrit:
 1. Direct Sanskrit term for the main concept

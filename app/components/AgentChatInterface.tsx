@@ -62,7 +62,7 @@ const AgentChatInterface = ({
   const handleDownloadPDF = async () => {
     try {
       await exportConversationToPDF(messages, {
-        title: 'Sanskrit Assistant Conversation',
+        title: 'RigVeda Assistant Conversation',
         watermark: 'indhic.com',
         includeMetadata: true
       });
@@ -94,7 +94,7 @@ const AgentChatInterface = ({
       <header className="border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="font-semibold text-gray-700">Sanskrit Assistant</h1>
+            <h1 className="font-semibold text-gray-700">RigVeda Assistant</h1>
             <div className="flex items-center gap-2">
               {modelName && (
                 <div className="flex items-center gap-2">
@@ -144,19 +144,19 @@ const AgentChatInterface = ({
             <div className="max-w-2xl text-center space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold text-gray-600 mb-2">
-                  Sanskrit Assistant
+                  RigVeda Assistant
                 </h2>
                 <p className="text-gray-500">
-                  Ask about Sanskrit literature, texts, philosophy, and teachings
+                  Ask about the RigVeda - hymns, verses, deities, rituals, and teachings
                 </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-8">
                 {[
-                  { text: 'Explain a Sanskrit text', action: 'Explain the concept of Dharma in the Bhagavad Gita' },
-                  { text: 'Discuss philosophy', action: 'What are the main schools of Hindu philosophy?' },
-                  { text: 'Explore ancient texts', action: 'Tell me about the Upanishads' },
-                  { text: 'Learn about epics', action: 'Summarize the story of the Mahabharata' },
+                  { text: 'Explore hymns', action: 'Tell me about hymns to Agni in the RigVeda' },
+                  { text: 'Learn about deities', action: 'Who is Indra in the RigVeda?' },
+                  { text: 'Understand rituals', action: 'What is the significance of Soma in Vedic rituals?' },
+                  { text: 'Discover philosophy', action: 'What is the Nasadiya Sukta about?' },
                 ].map((suggestion) => (
                   <button
                     key={suggestion.action}
@@ -195,7 +195,7 @@ const AgentChatInterface = ({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about Sanskrit literature..."
+                placeholder="Ask about the RigVeda..."
                 disabled={isProcessing}
                 rows={1}
                 className="w-full px-4 py-3 pr-12 rounded-2xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"

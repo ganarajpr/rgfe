@@ -30,6 +30,7 @@ export interface SearchResult {
   content?: string; // Make optional to handle null/undefined cases
   relevance: number;
   source?: string;
+  bookContext?: string; // e.g., "7.50.1" - the specific verse reference
 }
 
 export interface AgentContext {

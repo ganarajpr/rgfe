@@ -2,7 +2,7 @@ import { streamText } from 'ai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { AgentContext, AgentResponse, SearchResult } from './types';
 
-const GENERATOR_SYSTEM_PROMPT = `You are a Generator Agent specialized in creating comprehensive answers about Sanskrit literature.
+const GENERATOR_SYSTEM_PROMPT = `You are a Generator Agent specialized in creating comprehensive answers about the RigVeda.
 
 Your role is to:
 1. Review ALL search results provided to you from multiple search queries
@@ -19,10 +19,11 @@ When analyzing search results:
 
 CRITICAL RULES: 
 - When requesting additional search, you MUST provide search terms in Sanskrit/Devanagari script (देवनागरी)
-- You MUST ONLY answer based on the search results provided
-- NEVER use your own general knowledge to answer questions
+- You MUST ONLY answer based on the RigVeda search results provided
+- NEVER use your own general knowledge or information from other Sanskrit texts
 - If search results do NOT contain sufficient information to answer the question, you should state that clearly
 - Comment on the currently returned verses and explain why they are insufficient
+- ONLY discuss the RigVeda - do NOT reference other Vedas, Upanishads, Puranas, or epics
 
 Response format:
 - If need more search: Output JSON with { "needsMoreSearch": true, "searchQuery": "sanskrit terms in devanagari", "reasoning": "why" }
@@ -30,12 +31,13 @@ Response format:
 - If insufficient info: State clearly that the available verses do not contain enough information to answer the question
 
 Your answers should:
-- Be STRICTLY based on the provided search results
+- Be STRICTLY based on the provided RigVeda search results
 - Include verses and translations with proper highlighting
-- Cite specific texts or sources when possible
+- Cite specific mandalas, suktas, and verse numbers when possible
 - Be comprehensive yet clear
 - NEVER include information not found in the search results
-- Maintain scholarly rigor by only using verified sources from search results`;
+- NEVER reference other Sanskrit texts (Upanishads, Mahabharata, etc.)
+- Maintain scholarly rigor by only using verified sources from the RigVeda`;
 
 export class GeneratorAgent {
   private readonly model: LanguageModelV2;
@@ -194,7 +196,7 @@ Output ONLY a JSON object:
   ): AsyncGenerator<string, void, unknown> {
     // If no search results, return early with explanation
     if (!searchResults || searchResults.length === 0) {
-      yield 'I apologize, but I could not find any relevant information in the Sanskrit text corpus to answer your question. Please try rephrasing your query or ask about a different topic.';
+      yield 'I apologize, but I could not find any relevant verses in the RigVeda to answer your question. Please try rephrasing your query or ask about a different topic from the RigVeda.';
       return;
     }
 
@@ -202,7 +204,7 @@ Output ONLY a JSON object:
 
 User Query: ${userQuery}
 
-Available Information from Sanskrit Texts (from multiple search queries):
+Available Information from RigVeda (from multiple search queries):
 ${searchResults.map((r, i) => `
 ${i + 1}. ${r.title} (Source: ${r.source})
    ${r.content}
@@ -216,14 +218,15 @@ If the search results do not contain sufficient information to answer the questi
 - Do NOT fill in gaps with your own knowledge
 
 If the search results contain sufficient information:
-1. Directly address the user's question using ONLY the provided sources
-2. Synthesize information from the sources listed above
-3. Cite specific sources when making claims
+1. Directly address the user's question using ONLY the provided RigVeda sources
+2. Synthesize information from the RigVeda verses listed above
+3. Cite specific mandalas, suktas, and verse numbers when making claims
 4. Be well-structured and easy to read
-5. Include relevant details from the Sanskrit texts provided
+5. Include relevant details from the RigVeda verses provided
 6. Highlight verses and translations appropriately using markdown formatting
 7. Use **bold** for Sanskrit verses and *italics* for translations
-8. Be concise and crisp while providing a proper answer based ONLY on the sources`;
+8. Be concise and crisp while providing a proper answer based ONLY on the RigVeda sources
+9. Do NOT reference or mention other Sanskrit texts (Upanishads, Puranas, epics, etc.)`;
 
     try {
       const result = streamText({

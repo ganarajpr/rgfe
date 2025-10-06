@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 
 export interface ConversationMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system' | 'thinking' | 'verses';
+  role: 'user' | 'assistant' | 'system' | 'thinking' | 'verses' | 'orchestrator' | 'searcher' | 'generator';
   content: string;
   timestamp: Date;
   metadata?: {
@@ -13,6 +13,7 @@ export interface ConversationMessage {
       content?: string;
       relevance: number;
       source?: string;
+      bookContext?: string;
     }>;
   };
 }
@@ -31,7 +32,7 @@ export async function exportConversationToPDF(
   options: PDFExportOptions = {}
 ): Promise<void> {
   const {
-    title = 'Sanskrit Assistant Conversation',
+    title = 'RigVeda Assistant Conversation',
     watermark = 'indhic.com',
     includeMetadata = true
   } = options;
@@ -86,15 +87,26 @@ export async function exportConversationToPDF(
         currentY = margin;
       }
 
-      // Message header
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0);
-      
-      const roleLabel = getRoleLabel(message.role);
-      const timestamp = message.timestamp.toLocaleString();
-      pdf.text(`${roleLabel} - ${timestamp}`, margin, currentY);
-      currentY += lineHeight;
+      // Skip message header for system/status messages (they're already styled differently)
+      if (message.role !== 'system' && message.role !== 'thinking' && 
+          message.role !== 'orchestrator' && message.role !== 'searcher' && 
+          message.role !== 'generator') {
+        // Message header
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(107, 114, 128); // Gray (text-gray-500)
+        
+        const roleLabel = getRoleLabel(message.role);
+        const timestamp = message.timestamp.toLocaleTimeString();
+        pdf.text(roleLabel, margin, currentY);
+        
+        pdf.setFontSize(8);
+        pdf.setTextColor(156, 163, 175); // Light gray
+        const roleLabelWidth = pdf.getTextWidth(roleLabel);
+        pdf.text(timestamp, margin + roleLabelWidth + 5, currentY);
+        currentY += lineHeight;
+        pdf.setFontSize(10);
+      }
 
       // Message content
       pdf.setFontSize(10);
@@ -103,38 +115,83 @@ export async function exportConversationToPDF(
 
       // Handle different message types
       if (message.role === 'verses' && message.metadata?.searchResults) {
-        // Special handling for verses
-        pdf.text('Found Verses:', margin, currentY);
-        currentY += lineHeight;
+        // Special handling for verses - styled like the UI
+        pdf.setFillColor(239, 246, 255); // Blue background (bg-blue-50)
+        const boxY = currentY - 5;
+        const boxHeight = 15;
+        pdf.rect(margin - 5, boxY, contentWidth + 10, boxHeight, 'F');
         
-        message.metadata.searchResults.forEach((verse, index) => {
-          if (currentY > pageHeight - margin - 30) {
+        pdf.setTextColor(30, 64, 175); // Blue text (text-blue-800)
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`📜 ${message.content}`, margin, currentY);
+        currentY += lineHeight * 2;
+        
+        message.metadata.searchResults.forEach((verse) => {
+          if (currentY > pageHeight - margin - 50) {
             pdf.addPage();
             addWatermark();
             currentY = margin;
           }
 
-          // Verse header
+          // Verse box with border
+          const verseBoxY = currentY - 3;
+          pdf.setDrawColor(191, 219, 254); // Blue border (border-blue-200)
+          pdf.setLineWidth(0.5);
+          pdf.rect(margin, verseBoxY, contentWidth, 5, 'S'); // Will adjust height after content
+
+          // Verse reference and relevance
+          pdf.setTextColor(37, 99, 235); // Blue (text-blue-600)
           pdf.setFont('helvetica', 'bold');
-          pdf.text(`Verse ${index + 1} (${(verse.relevance * 100).toFixed(1)}% match)`, margin, currentY);
+          pdf.setFontSize(9);
+          const verseRef = verse.bookContext || verse.title || 'Verse';
+          pdf.text(verseRef, margin + 2, currentY);
+          
+          const relevanceText = `${(verse.relevance * 100).toFixed(1)}% match`;
+          const textWidth = pdf.getTextWidth(relevanceText);
+          pdf.setTextColor(107, 114, 128); // Gray (text-gray-500)
+          pdf.text(relevanceText, margin + contentWidth - textWidth - 2, currentY);
           currentY += lineHeight;
 
           // Source
           if (verse.source) {
-            pdf.setFont('helvetica', 'italic');
-            pdf.text(`Source: ${verse.source}`, margin, currentY);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(9);
+            pdf.setTextColor(75, 85, 99); // Dark gray (text-gray-600)
+            pdf.text(`Source: ${verse.source}`, margin + 2, currentY);
             currentY += lineHeight;
           }
 
-          // Content
+          // Content with preserved newlines
           pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          pdf.setTextColor(55, 65, 81); // Gray (text-gray-700)
           const content = verse.content || verse.title || 'No content available';
-          const lines = pdf.splitTextToSize(content, contentWidth);
-          pdf.text(lines, margin, currentY);
-          currentY += lineHeight * lines.length + 5;
+          // Split by newlines first to preserve formatting
+          const contentLines = content.split('\n');
+          contentLines.forEach(line => {
+            const wrappedLines = pdf.splitTextToSize(line || ' ', contentWidth - 4);
+            pdf.text(wrappedLines, margin + 2, currentY);
+            currentY += lineHeight * wrappedLines.length;
+          });
+          
+          currentY += 8; // Space between verses
         });
+        
+        currentY += 5;
+      } else if (message.role === 'system' || message.role === 'thinking' || 
+                 message.role === 'orchestrator' || message.role === 'searcher' || 
+                 message.role === 'generator') {
+        // Status messages - smaller and gray
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(156, 163, 175); // Light gray (text-gray-400)
+        const lines = pdf.splitTextToSize(message.content, contentWidth);
+        pdf.text(lines, margin, currentY);
+        currentY += lineHeight * lines.length + 3;
       } else {
         // Regular message content
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(55, 65, 81); // Dark gray (text-gray-700)
         const content = message.content;
         const lines = pdf.splitTextToSize(content, contentWidth);
         pdf.text(lines, margin, currentY);
@@ -159,7 +216,7 @@ export async function exportConversationToPDF(
     }
 
     // Save the PDF
-    const fileName = `sanskrit-conversation-${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `rigveda-conversation-${new Date().toISOString().split('T')[0]}.pdf`;
     pdf.save(fileName);
 
   } catch (error) {
@@ -174,17 +231,23 @@ export async function exportConversationToPDF(
 function getRoleLabel(role: string): string {
   switch (role) {
     case 'user':
-      return 'User';
+      return 'You';
     case 'assistant':
-      return 'Assistant';
+      return 'RigVeda Assistant';
     case 'system':
-      return 'System';
+      return 'Status';
     case 'thinking':
       return 'Processing';
     case 'verses':
       return 'Found Verses';
+    case 'orchestrator':
+      return 'Status';
+    case 'searcher':
+      return 'Status';
+    case 'generator':
+      return 'Status';
     default:
-      return 'Unknown';
+      return 'Info';
   }
 }
 
@@ -196,7 +259,7 @@ export async function exportConversationFromDOM(
   options: PDFExportOptions = {}
 ): Promise<void> {
   const {
-    title = 'Sanskrit Assistant Conversation',
+    title = 'RigVeda Assistant Conversation',
     watermark = 'indhic.com'
   } = options;
 
@@ -247,7 +310,7 @@ export async function exportConversationFromDOM(
     pdf.text(title, 20, 20);
 
     // Save PDF
-    const fileName = `sanskrit-conversation-${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `rigveda-conversation-${new Date().toISOString().split('T')[0]}.pdf`;
     pdf.save(fileName);
 
   } catch (error) {

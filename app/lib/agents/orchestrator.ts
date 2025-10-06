@@ -2,11 +2,11 @@ import { streamText } from 'ai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { AgentContext, AgentResponse, SearchResult } from './types';
 
-const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing in Sanskrit literature queries. Your role is to:
+const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing in RigVeda queries. Your role is to:
 
 1. CLASSIFY incoming user requests:
-   - If the request is about Sanskrit literature, philosophy, texts, or related topics → Route to SEARCHER agent
-   - If the request is NOT about Sanskrit literature → Respond directly with a polite decline
+   - If the request is about the RigVeda (hymns, verses, deities, rituals, philosophy) → Route to SEARCHER agent
+   - If the request is NOT about the RigVeda → Respond directly with a polite decline
 
 2. COORDINATE between agents:
    - When receiving results from SEARCHER agent → Route to GENERATOR agent
@@ -16,10 +16,12 @@ const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing i
    - Always inform the user what action you're taking
    - Keep messages concise and clear
 
+IMPORTANT: This assistant ONLY answers questions about the RigVeda. Do NOT route queries about other Sanskrit texts (Upanishads, Mahabharata, Ramayana, Puranas, etc.) to the searcher.
+
 Response format:
-- For classification: Output JSON with { "isSanskritRelated": boolean, "reasoning": string, "action": "respond" | "route_to_searcher" }
+- For classification: Output JSON with { "isRigVedaRelated": boolean, "reasoning": string, "action": "respond" | "route_to_searcher" }
 - For routing: Provide a brief status message about what's happening next
-- For non-Sanskrit queries: Politely explain you specialize in Sanskrit literature
+- For non-RigVeda queries: Politely explain you specialize in the RigVeda only
 
 Current conversation context will be provided with each request.`;
 
@@ -43,7 +45,8 @@ export class OrchestratorAgent {
 ${userQuery}
 </userRequest>
 
-Analyze this request and determine if it relates to Sanskrit literature, texts, philosophy, or related topics.
+Analyze this request and determine if it relates to the RigVeda specifically (hymns, verses, deities, rituals, Vedic philosophy).
+DO NOT classify questions about other Sanskrit texts (Upanishads, Mahabharata, Ramayana, Puranas, etc.) as RigVeda-related.
 Output ONLY a JSON object with your classification decision.`;
 
     try {
@@ -77,26 +80,28 @@ Output ONLY a JSON object with your classification decision.`;
       }
 
       // Route based on classification
-      if (classification.isSanskritRelated && classification.action === 'route_to_searcher') {
+      const isRigVedaRelated = classification.isRigVedaRelated || classification.isSanskritRelated; // Support both field names
+      if (isRigVedaRelated && classification.action === 'route_to_searcher') {
         return {
-          content: `I understand you're asking about Sanskrit literature. Let me search for relevant information...`,
+          content: `I understand you're asking about the RigVeda. Let me search for relevant information...`,
           nextAgent: 'searcher',
           isComplete: false,
-          statusMessage: 'Searching for relevant Sanskrit texts and information...',
+          statusMessage: 'Searching the RigVeda for relevant verses and information...',
         };
       } else {
-        // Not Sanskrit related - respond directly
+        // Not RigVeda related - respond directly
         return {
-          content: `I appreciate your question, but I specialize in Sanskrit literature and related topics. Your question about "${userQuery}" appears to be outside my area of expertise. 
+          content: `I appreciate your question, but I specialize exclusively in the RigVeda. Your question about "${userQuery}" appears to be outside my scope.
 
 I can help you with:
-- Sanskrit texts (Vedas, Upanishads, Puranas, epics like Mahabharata and Ramayana)
-- Sanskrit philosophy and schools of thought
-- Classical Sanskrit literature and poetry
-- Sanskrit grammar and linguistics
-- Historical and cultural aspects of Sanskrit traditions
+- RigVeda hymns and verses (Suktas)
+- Vedic deities (Agni, Indra, Soma, Varuna, etc.)
+- Vedic rituals and ceremonies
+- Vedic philosophy and cosmology
+- Meters and poetic structure in the RigVeda
+- Historical and cultural context of Vedic hymns
 
-Is there anything related to Sanskrit literature I can help you with?`,
+Is there anything related to the RigVeda I can help you with?`,
           isComplete: true,
           statusMessage: 'Response complete',
         };
@@ -144,12 +149,13 @@ Is there anything related to Sanskrit literature I can help you with?`,
       return 'No verses found.';
     }
 
-    const versesList = searchResults.map((result, index) => {
+    const versesList = searchResults.map((result) => {
       const relevance = (result.relevance * 100).toFixed(1);
       const source = result.source || 'Sanskrit Text';
+      const verseRef = result.bookContext || 'Verse';
       const content = result.content || result.title || 'No content available';
       
-      return `**Verse ${index + 1}** (Relevance: ${relevance}%)
+      return `**${verseRef}** (Relevance: ${relevance}%)
 *Source: ${source}*
 
 ${content}
