@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import AgentChatMessage from './AgentChatMessage';
 import { AgentMessage, AgentRole } from '../lib/agents/types';
+import { exportConversationToPDF } from '../lib/pdf-export';
 
 interface AgentChatInterfaceProps {
   onSendMessage: (message: string) => Promise<void>;
@@ -10,6 +11,7 @@ interface AgentChatInterfaceProps {
   isProcessing: boolean;
   currentAgent: AgentRole | null;
   onNewChat: () => void;
+  onClearCache?: () => Promise<void>;
   modelName?: string;
 }
 
@@ -19,6 +21,7 @@ const AgentChatInterface = ({
   isProcessing,
   currentAgent,
   onNewChat,
+  onClearCache,
   modelName,
 }: AgentChatInterfaceProps) => {
   const [input, setInput] = useState('');
@@ -56,6 +59,19 @@ const AgentChatInterface = ({
     }
   };
 
+  const handleDownloadPDF = async () => {
+    try {
+      await exportConversationToPDF(messages, {
+        title: 'Sanskrit Assistant Conversation',
+        watermark: 'indhic.com',
+        includeMetadata: true
+      });
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Failed to download PDF. Please try again.');
+    }
+  };
+
   const getAgentStatusText = () => {
     if (!currentAgent || !isProcessing) return null;
 
@@ -81,19 +97,44 @@ const AgentChatInterface = ({
             <h1 className="font-semibold text-gray-700">Sanskrit Assistant</h1>
             <div className="flex items-center gap-2">
               {modelName && (
-                <span className="text-xs text-gray-400">{modelName}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">{modelName}</span>
+                  {onClearCache && (
+                    <button
+                      onClick={onClearCache}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      title="Clear model cache"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
               )}
               {getAgentStatusText()}
             </div>
           </div>
         </div>
         
-        <button
-          onClick={onNewChat}
-          className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          New Chat
-        </button>
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <button
+              onClick={handleDownloadPDF}
+              className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
+              title="Download conversation as PDF"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              PDF
+            </button>
+          )}
+          <button
+            onClick={onNewChat}
+            className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            New Chat
+          </button>
+        </div>
       </header>
 
       {/* Messages Area */}

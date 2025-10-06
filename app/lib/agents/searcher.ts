@@ -6,9 +6,17 @@ import { getSearchTool } from '../tools/search-tool';
 export class SearcherAgent {
   private readonly model: LanguageModelV2;
   private searchToolInitialized = false;
+  private coordinatorCallback?: (message: string) => void;
 
   constructor(model: LanguageModelV2) {
     this.model = model;
+  }
+
+  /**
+   * Set callback for coordinator notifications
+   */
+  setCoordinatorCallback(callback: (message: string) => void): void {
+    this.coordinatorCallback = callback;
   }
 
   /**
@@ -70,7 +78,64 @@ Sanskrit keywords:`;
   }
 
   /**
-   * Perform search based on user query
+   * Generate multiple search terms/phrases for comprehensive search IN SANSKRIT
+   */
+  private async generateSearchTerms(userQuery: string): Promise<string[]> {
+    try {
+      console.log(`🧠 Generating multiple Sanskrit search terms for: "${userQuery}"`);
+      
+      const prompt = `You are a Sanskrit literature expert. For the given user query, generate 2-3 different search terms or phrases IN SANSKRIT/DEVANAGARI SCRIPT that would help find comprehensive information about the topic in Sanskrit texts.
+
+User Query: ${userQuery}
+
+IMPORTANT: 
+- Generate ALL search terms in Sanskrit/Devanagari script (देवनागरी)
+- DO NOT use English or transliteration
+- Focus on key Sanskrit terms that would appear in classical texts
+
+Generate 2-3 different search approaches in Sanskrit:
+1. Direct Sanskrit term for the main concept
+2. Alternative Sanskrit phrase or related concept
+3. Specific Sanskrit aspect or detail (if applicable)
+
+Return ONLY the Sanskrit search terms in Devanagari script, one per line, without explanations or numbering.
+
+Sanskrit search terms:`;
+
+      const result = await generateText({
+        model: this.model,
+        prompt,
+        temperature: 0.4,
+      });
+
+      const searchTerms = (result.text || '')
+        .split('\n')
+        .map(term => term.trim())
+        .filter(term => term.length > 0 && /[\u0900-\u097F]/.test(term)) // Only keep terms with Devanagari
+        .slice(0, 3); // Limit to 3 terms
+
+      // If we got Sanskrit terms, use them; otherwise translate the query
+      if (searchTerms.length > 0) {
+        console.log(`   Generated ${searchTerms.length} Sanskrit search terms:`);
+        searchTerms.forEach((term, i) => {
+          console.log(`   ${i + 1}. "${term}"`);
+        });
+        return searchTerms;
+      } else {
+        console.log('   No Sanskrit terms generated, attempting translation...');
+        const sanskritQuery = await this.translateToSanskrit(userQuery);
+        return [sanskritQuery];
+      }
+    } catch (error) {
+      console.error('❌ Failed to generate search terms:', error);
+      // Try to translate as fallback
+      const sanskritQuery = await this.translateToSanskrit(userQuery);
+      return [sanskritQuery];
+    }
+  }
+
+  /**
+   * Perform search based on user query with multiple search terms
    */
   async search(context: AgentContext, customSearchQuery?: string): Promise<AgentResponse> {
     const queryToSearch = customSearchQuery || context.userQuery;
@@ -81,53 +146,74 @@ Sanskrit keywords:`;
         await this.initializeSearchTool();
       }
 
+      // Generate multiple search terms
+      const searchTerms = await this.generateSearchTerms(queryToSearch);
+      
       // Get the search tool
       const searchTool = getSearchTool();
+      
+      // Perform searches with each term
+      const allSearchResults: SearchResult[] = [];
+      const searchTermResults: { term: string; results: SearchResult[] }[] = [];
 
-      // For vector/embedding search, use the original query directly
-      // The embedding model understands semantic meaning across languages
-      // Translation is only needed for keyword/text search fallback
-      console.log(`🔍 Performing semantic vector search for: "${queryToSearch}"`);
-      const searchResults = await searchTool.search(queryToSearch, 10);
-
-      if (searchResults.length === 0) {
-        console.log('⚠️ No search results found with semantic search');
-        console.log('🔄 Attempting fallback with Sanskrit translation...');
+      for (let i = 0; i < searchTerms.length; i++) {
+        const searchTerm = searchTerms[i];
         
-        // Try with Sanskrit translation as last resort
-        const sanskritQuery = await this.translateToSanskrit(queryToSearch);
-        console.log(`   Sanskrit translation: "${sanskritQuery}"`);
-        const fallbackResults = await searchTool.search(sanskritQuery, 10);
+        console.log(`🔍 Search ${i + 1}/${searchTerms.length}: "${searchTerm}"`);
         
-        if (fallbackResults.length === 0) {
-          console.log('⚠️ No results found even with Sanskrit translation');
-          return {
-            content: 'No results found in the Sanskrit text corpus for this query.',
-            nextAgent: 'generator',
-            isComplete: false,
-            searchResults: [],
-            statusMessage: 'No results found',
-          };
+        // Notify coordinator about current search
+        if (this.coordinatorCallback) {
+          this.coordinatorCallback(`Searching: "${searchTerm}" (${i + 1}/${searchTerms.length})`);
         }
-        
-        console.log(`✅ Found ${fallbackResults.length} results with Sanskrit translation`);
+
+        try {
+          const searchResults = await searchTool.search(searchTerm, 8);
+          
+          console.log(`   ✅ Found ${searchResults.length} results`);
+          
+          // Store results for this term
+          searchTermResults.push({
+            term: searchTerm,
+            results: searchResults
+          });
+          
+          // Add unique results to combined list
+          const existingIds = new Set(allSearchResults.map(r => r.id));
+          const uniqueResults = searchResults.filter(r => !existingIds.has(r.id));
+          allSearchResults.push(...uniqueResults);
+          
+        } catch (error) {
+          console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
+        }
+      }
+
+      // Log comprehensive results
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🔍 COMPREHENSIVE SEARCH RESULTS');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`Total unique results: ${allSearchResults.length}`);
+      searchTermResults.forEach((termResult, i) => {
+        console.log(`Term ${i + 1}: "${termResult.term}" → ${termResult.results.length} results`);
+      });
+      console.log('═══════════════════════════════════════════════════════════\n');
+
+      if (allSearchResults.length === 0) {
+        console.log('⚠️ No search results found with any search term');
         return {
-          content: `Found ${fallbackResults.length} relevant passages from Sanskrit texts.`,
+          content: 'No results found in the Sanskrit text corpus for this query.',
           nextAgent: 'generator',
           isComplete: false,
-          searchResults: fallbackResults,
-          statusMessage: `Found ${fallbackResults.length} relevant passages`,
+          searchResults: [],
+          statusMessage: 'No results found',
         };
       }
 
-      console.log(`✅ Found ${searchResults.length} results with semantic vector search`);
-
       return {
-        content: `Found ${searchResults.length} relevant passages from Sanskrit texts.`,
+        content: `Found ${allSearchResults.length} relevant passages from Sanskrit texts using ${searchTerms.length} different search approaches.`,
         nextAgent: 'generator',
         isComplete: false,
-        searchResults,
-        statusMessage: `Found ${searchResults.length} relevant passages`,
+        searchResults: allSearchResults,
+        statusMessage: `Found ${allSearchResults.length} relevant passages`,
       };
     } catch (error) {
       console.error('❌ Searcher error:', error);

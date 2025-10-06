@@ -20,23 +20,23 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
   
   const availableModels: Model[] = [
     {
+      id: 'Mistral-7B-Instruct-v0.3-q4f32_1-MLC',
+      name: 'Mistral 7B Instruct v0.3',
+      size: '4.2GB',
+      description: 'Recommended - High-quality reasoning and instruction following',
+      recommended: true,
+    },
+    {
       id: 'Qwen3-8B-q4f16_1-MLC',
       name: 'Qwen3 8B',
       size: '4.8GB',
-      description: 'Recommended - Best multilingual capability and reasoning',
-      recommended: true,
+      description: 'Best multilingual capability and reasoning',
     },
     {
       id: 'gemma-2-2b-it-q4f16_1-MLC',
       name: 'Gemma 2 2B Instruct',
       size: '1.5GB',
       description: 'Google\'s efficient small model with strong performance',
-    },
-    {
-      id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',
-      name: 'Mistral 7B Instruct v0.3',
-      size: '4.2GB',
-      description: 'High-quality reasoning and instruction following',
     },
     {
       id: 'Qwen3-4B-q4f16_1-MLC',
@@ -101,7 +101,7 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
           </div>
         </div>
         
-        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 flex justify-end">
           <button
             onClick={() => selectedModel && onSelectModel(selectedModel)}
             disabled={!selectedModel}

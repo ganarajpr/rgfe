@@ -1,6 +1,6 @@
 import { streamText } from 'ai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { AgentContext, AgentResponse } from './types';
+import { AgentContext, AgentResponse, SearchResult } from './types';
 
 const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing in Sanskrit literature queries. Your role is to:
 
@@ -124,12 +124,44 @@ Is there anything related to Sanskrit literature I can help you with?`,
       };
     }
 
+    // Create verses display content
+    const versesContent = this.formatVersesForDisplay(searchResults);
+
     return {
-      content: `Found ${searchResults.length} relevant sources. Now analyzing and generating your answer...`,
+      content: versesContent,
       nextAgent: 'generator',
       isComplete: false,
       statusMessage: 'Generating comprehensive answer...',
+      searchResults,
     };
+  }
+
+  /**
+   * Format search results as verses for display
+   */
+  private formatVersesForDisplay(searchResults: SearchResult[]): string {
+    if (searchResults.length === 0) {
+      return 'No verses found.';
+    }
+
+    const versesList = searchResults.map((result, index) => {
+      const relevance = (result.relevance * 100).toFixed(1);
+      const source = result.source || 'Sanskrit Text';
+      const content = result.content || result.title || 'No content available';
+      
+      return `**Verse ${index + 1}** (Relevance: ${relevance}%)
+*Source: ${source}*
+
+${content}
+
+---`;
+    }).join('\n\n');
+
+    return `**Found ${searchResults.length} relevant verses:**
+
+${versesList}
+
+*Analyzing these verses to provide a comprehensive answer...*`;
   }
 
   /**

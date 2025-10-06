@@ -244,6 +244,78 @@ export const useWebLLM = () => {
   }, []);
 
   /**
+   * Clear all cached models from storage
+   */
+  const clearModelCache = useCallback(async () => {
+    try {
+      console.log('🧹 Clearing all cached models...');
+      
+      // Clear localStorage
+      localStorage.removeItem('selectedModel');
+      
+      // Clear WebLLM cache using the API
+      if (typeof window !== 'undefined' && 'webllm' in window) {
+        try {
+          // Use WebLLM's cache clearing API if available
+          const webllm = (window as any).webllm;
+          if (webllm && typeof webllm.clearCache === 'function') {
+            await webllm.clearCache();
+            console.log('✅ WebLLM cache cleared');
+          } else {
+            console.log('⚠️ WebLLM cache clearing not available, using fallback');
+          }
+        } catch (error) {
+          console.warn('⚠️ WebLLM cache clearing failed:', error);
+        }
+      }
+      
+      // Clear IndexedDB cache (WebLLM stores models here)
+      if (typeof window !== 'undefined' && 'indexedDB' in window) {
+        try {
+          // List common WebLLM database names
+          const dbNames = ['webllm_db', 'mlc_model_cache', 'model_cache'];
+          
+          for (const dbName of dbNames) {
+            try {
+              const deleteRequest = indexedDB.deleteDatabase(dbName);
+              await new Promise((resolve, reject) => {
+                deleteRequest.onsuccess = () => resolve(true);
+                deleteRequest.onerror = () => reject(deleteRequest.error);
+                deleteRequest.onblocked = () => {
+                  console.warn(`Database ${dbName} deletion blocked - may be in use`);
+                  resolve(false);
+                };
+              });
+            } catch (error) {
+              console.warn(`Failed to delete database ${dbName}:`, error);
+            }
+          }
+          
+          console.log('✅ IndexedDB cache cleared');
+        } catch (error) {
+          console.warn('⚠️ IndexedDB cache clearing failed:', error);
+        }
+      }
+      
+      // Clear any existing model from memory
+      if (engineRef.current) {
+        await unloadModel();
+      }
+      
+      // Reset state to force UI update
+      setIsModelLoaded(false);
+      setCurrentModel('');
+      setModelCapabilities(null);
+      
+      console.log('✅ Model cache clearing completed');
+      return true;
+    } catch (error) {
+      console.error('❌ Error clearing model cache:', error);
+      return false;
+    }
+  }, []);
+
+  /**
    * Cleanup function to unload model and free memory
    */
   const unloadModel = useCallback(async () => {
@@ -362,6 +434,7 @@ export const useWebLLM = () => {
     resetChat,
     checkForExistingModel,
     unloadModel, // Expose unloadModel for manual cleanup
+    clearModelCache, // Expose clearModelCache for cache management
     engine: engineRef.current, // Expose engine for multi-agent system
   };
 };

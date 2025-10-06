@@ -5,7 +5,8 @@ export type MessageType =
   | 'system'         // System/status message for UI
   | 'assistant'      // Final assistant response
   | 'agent-internal' // Internal agent-to-agent communication
-  | 'thinking';      // Agent thinking/processing status
+  | 'thinking'       // Agent thinking/processing status
+  | 'verses';        // Search results/verses display
 
 export interface AgentMessage {
   id: string;

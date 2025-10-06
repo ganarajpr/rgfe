@@ -17,6 +17,7 @@ export default function Home() {
     currentModel,
     loadModel,
     checkForExistingModel,
+    clearModelCache,
     engine,
   } = useWebLLM();
 
@@ -44,14 +45,19 @@ export default function Home() {
       // Check if there's a previously loaded model
       const existingModel = checkForExistingModel();
       
-      // Always use Qwen 8B model (same as embedding model)
-      const defaultModel = 'Qwen3-8B-q4f16_1-MLC';
-      const modelToLoad = existingModel || defaultModel;
-      
-      // Automatically load the model
-      await loadModel(modelToLoad);
-      // If it fails, the model selector will automatically show
-      // since isModelLoaded will remain false
+      if (existingModel) {
+        // If there's a cached model, try to load it
+        console.log('Found cached model:', existingModel);
+        const success = await loadModel(existingModel);
+        if (!success) {
+          // If loading fails, clear the invalid model from cache
+          console.log('Failed to load cached model, clearing cache');
+          await clearModelCache();
+        }
+      } else {
+        // No cached model found, don't auto-load anything
+        console.log('No cached model found');
+      }
       
       setIsInitialCheck(false);
     };
@@ -107,6 +113,7 @@ export default function Home() {
       isProcessing={isProcessing}
       currentAgent={currentAgent}
       onNewChat={handleNewChat}
+      onClearCache={clearModelCache}
       modelName={currentModel}
     />
   );

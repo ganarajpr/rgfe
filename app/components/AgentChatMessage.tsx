@@ -35,6 +35,55 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
     );
   }
 
+  // Verses display (search results)
+  if (message.messageType === 'verses') {
+    const searchResults = message.metadata?.searchResults || [];
+    
+    return (
+      <div className="flex gap-4 py-6 px-4">
+        <div className="flex-1 space-y-3 overflow-hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-blue-600">📜 Found Verses</span>
+            <span className="text-xs text-gray-400">
+              {message.timestamp.toLocaleTimeString()}
+            </span>
+          </div>
+          
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+            <div className="text-sm text-blue-800 font-medium mb-3">
+              {message.content}
+            </div>
+            
+            {searchResults.length > 0 && (
+              <div className="space-y-3">
+                {searchResults.map((result, index) => (
+                  <div key={result.id} className="bg-white p-3 rounded border border-blue-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xs font-medium text-blue-600">
+                        Verse {index + 1}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {(result.relevance * 100).toFixed(1)}% match
+                      </span>
+                    </div>
+                    {result.source && (
+                      <div className="text-xs text-gray-600 mb-2">
+                        Source: {result.source}
+                      </div>
+                    )}
+                    <div className="text-sm text-gray-700 leading-relaxed">
+                      {result.content || result.title || 'No content available'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // User messages
   if (message.messageType === 'user') {
     return (

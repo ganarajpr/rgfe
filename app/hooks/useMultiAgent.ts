@@ -27,15 +27,6 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
   const searcherRef = useRef<SearcherAgent | null>(null);
   const generatorRef = useRef<GeneratorAgent | null>(null);
 
-  // Update agent instances when model changes
-  useEffect(() => {
-    if (model) {
-      orchestratorRef.current = new OrchestratorAgent(model);
-      searcherRef.current = new SearcherAgent(model);
-      generatorRef.current = new GeneratorAgent(model);
-    }
-  }, [model]);
-  
   const searchIterationRef = useRef<number>(0);
   const currentSearchResultsRef = useRef<SearchResult[]>([]);
 
@@ -67,6 +58,22 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
   const addStatusMessage = useCallback((content: string, fromAgent: AgentRole) => {
     addMessage(content, fromAgent, 'system', { fromAgent });
   }, [addMessage]);
+
+  // Update agent instances when model changes
+  useEffect(() => {
+    if (model) {
+      orchestratorRef.current = new OrchestratorAgent(model);
+      searcherRef.current = new SearcherAgent(model);
+      generatorRef.current = new GeneratorAgent(model);
+      
+      // Set up coordinator callback for searcher
+      if (searcherRef.current) {
+        searcherRef.current.setCoordinatorCallback((message: string) => {
+          addStatusMessage(message, 'searcher');
+        });
+      }
+    }
+  }, [model, addStatusMessage]);
 
   /**
    * Main process that orchestrates the multi-agent flow
@@ -155,8 +162,11 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         console.log('🔍 SEARCHER REQUEST');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('Query:', userQuery);
-        console.log('Search Term:', userQuery);
+        console.log('Generating multiple search terms...');
         console.log('───────────────────────────────────────────────────────────');
+
+        // Add initial status message
+        addStatusMessage('Generating multiple search approaches...', 'searcher');
 
         const searchResponse = await searcherRef.current.search(searchContext);
         currentSearchResultsRef.current = searchResponse.searchResults || [];
@@ -164,8 +174,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         // Log searcher response
         console.log('🔍 SEARCHER RESPONSE');
         console.log('───────────────────────────────────────────────────────────');
-        console.log('Search Term Used:', userQuery);
-        console.log('Results Found:', searchResponse.searchResults?.length || 0);
+        console.log('Total Results Found:', searchResponse.searchResults?.length || 0);
         console.log('Status:', searchResponse.statusMessage);
         if (searchResponse.searchResults && searchResponse.searchResults.length > 0) {
           console.log('Top Results:');
@@ -176,7 +185,17 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         console.log('═══════════════════════════════════════════════════════════\n');
 
         if (searchResponse.statusMessage) {
-          addStatusMessage(`Searching for: "${userQuery}" - ${searchResponse.statusMessage}`, 'searcher');
+          addStatusMessage(searchResponse.statusMessage, 'searcher');
+        }
+
+        // Add verses display message if search results exist
+        if (searchResponse.searchResults && searchResponse.searchResults.length > 0) {
+          addMessage(
+            `Found ${searchResponse.searchResults.length} relevant verses from Sanskrit texts.`,
+            'orchestrator',
+            'verses',
+            { searchResults: searchResponse.searchResults }
+          );
         }
 
         // Step 3: Route to Generator
@@ -245,7 +264,8 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     if (generatorResponse.requiresMoreSearch && generatorResponse.nextAgent === 'searcher') {
       searchIterationRef.current++;
       
-      if (generatorResponse.statusMessage) {
+      // Only add status message if there's meaningful content (not empty, not JSON)
+      if (generatorResponse.statusMessage && !generatorResponse.statusMessage.includes('{')) {
         addStatusMessage(generatorResponse.statusMessage, 'generator');
       }
 
@@ -257,11 +277,12 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
       // Log refined search request
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('🔍 REFINED SEARCHER REQUEST (Iteration ' + searchIterationRef.current + ')');
+      console.log(`🔍 REFINED SEARCHER REQUEST (Iteration ${searchIterationRef.current})`);
       console.log('═══════════════════════════════════════════════════════════');
       console.log('Original Query:', userQuery);
       console.log('Refined Search Term:', generatorResponse.searchQuery || '');
       console.log('Previous Results Count:', currentSearchResultsRef.current.length);
+      console.log(`Max Iterations: 3 (current: ${searchIterationRef.current})`);
       console.log('───────────────────────────────────────────────────────────');
 
       const refinedSearchResponse = await searcherRef.current.refineSearch(
@@ -277,13 +298,12 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       console.log('───────────────────────────────────────────────────────────');
       console.log('Refined Search Term:', generatorResponse.searchQuery || '');
       console.log('Total Results Now:', currentSearchResultsRef.current.length);
-      console.log('New Results Added:', (refinedSearchResponse.searchResults?.length || 0) - currentSearchResultsRef.current.length);
       console.log('Status:', refinedSearchResponse.statusMessage);
       console.log('═══════════════════════════════════════════════════════════\n');
       
       if (refinedSearchResponse.statusMessage) {
         const refinedTerm = generatorResponse.searchQuery || '';
-        addStatusMessage(`Refined search for: "${refinedTerm}" - ${refinedSearchResponse.statusMessage}`, 'searcher');
+        addStatusMessage(`Refined search: "${refinedTerm}"`, 'searcher');
       }
 
       // Loop back to generator with new results
