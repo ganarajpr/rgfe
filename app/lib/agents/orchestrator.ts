@@ -85,11 +85,14 @@ Output ONLY a JSON object with your classification decision.`;
         model: this.model,
         prompt: classificationPrompt,
         temperature: 0.3,
-        signal,
+        abortSignal: signal,
       });
 
       let fullResponse = '';
       for await (const chunk of result.textStream) {
+        if (signal?.aborted) {
+          break;
+        }
         fullResponse += chunk;
       }
 

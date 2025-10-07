@@ -78,7 +78,6 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
           attempts++;
           const candidate = text.slice(0, i + 1);
           try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const obj = JSON.parse(candidate);
             const keys = Object.keys(obj as Record<string, unknown>);
             const looksLikeControlJson = ['needsMoreSearch', 'searchRequest', 'reasoning', 'isRigVedaRelated', 'action'].some(k => keys.includes(k));

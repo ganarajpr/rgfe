@@ -22,7 +22,7 @@ export class SearcherAgent {
   /**
    * Translate English query to Sanskrit search terms with RigVeda context
    */
-  private async translateToSanskrit(englishQuery: string, signal?: AbortSignal): Promise<string> {
+  private async translateToSanskrit(englishQuery: string): Promise<string> {
     try {
       console.log(`🌐 Translating query to Sanskrit: "${englishQuery}"`);
       

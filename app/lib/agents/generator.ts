@@ -231,11 +231,7 @@ Output ONLY a JSON object:
             statusMessage: `Need more information: ${analysis.reasoning}`,
           };
         } else {
-          if (hasCorruption) {
-            console.log('⚠️ Search request contains corrupted characters, proceeding with available results');
-          } else {
-            console.log('⚠️ Search request not in Sanskrit, proceeding with available results');
-          }
+          console.log('⚠️ Search request not in Sanskrit/Devanagari script, proceeding with available results');
           return null;
         }
       }
@@ -308,10 +304,13 @@ If the search results contain sufficient information:
         model: this.model,
         prompt: generationPrompt,
         temperature: 0.6,
-        signal,
+        abortSignal: signal,
       });
 
       for await (const chunk of result.textStream) {
+        if (signal?.aborted) {
+          break;
+        }
         yield chunk;
       }
     } catch (error) {
