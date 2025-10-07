@@ -21,6 +21,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<AgentRole | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Initialize agents with refs
   const orchestratorRef = useRef<OrchestratorAgent | null>(null);
@@ -30,6 +31,82 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
   const searchIterationRef = useRef<number>(0);
   const currentSearchResultsRef = useRef<SearchResult[]>([]);
   const searchTermsHistoryRef = useRef<string[]>([]); // Track search terms to avoid repeats
+
+  /**
+   * Remove any leading JSON or fenced ```json blocks from model output.
+   * This prevents internal control JSON from flashing in the UI before the
+   * actual natural language answer begins.
+   */
+  const sanitizeAssistantContent = useCallback((rawText: string): string => {
+    if (!rawText) return rawText;
+
+    let text = rawText;
+
+    // Helper to drop a leading fenced code block (``` or ```json)
+    const stripLeadingCodeFence = (input: string): string => {
+      const trimmed = input.replace(/^\s+/, '');
+      if (!trimmed.startsWith('```')) return input;
+
+      // Find the first newline after opening fence
+      const firstNewline = trimmed.indexOf('\n');
+      const fenceHeader = firstNewline === -1 ? trimmed : trimmed.slice(0, firstNewline + 1);
+      // Only treat as code fence if header is like ``` or ```json
+      if (!/^```(json|javascript|js)?\s*\n$/i.test(fenceHeader)) return input;
+
+      // Find the closing fence
+      const closingIndex = trimmed.indexOf('\n```', fenceHeader.length);
+      if (closingIndex === -1) return input; // No closing fence; leave as-is
+
+      const afterFence = trimmed.slice(closingIndex + 4); // skip over "```"
+      return afterFence.replace(/^\s+/, '');
+    };
+
+    // Try stripping a leading ```json fenced block if present
+    text = stripLeadingCodeFence(text);
+
+    // If the content still starts with a JSON object, try to remove the first object
+    const startsWithObject = /^(\s*\{)/.test(text);
+    if (startsWithObject) {
+      // Attempt to find a valid JSON object at the start by progressively
+      // expanding to the next closing brace and parsing.
+      const maxScan = Math.min(text.length, 20000);
+      let endIndex = -1;
+      let attempts = 0;
+
+      for (let i = 0; i < maxScan && attempts < 100; i++) {
+        if (text[i] === '}') {
+          attempts++;
+          const candidate = text.slice(0, i + 1);
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const obj = JSON.parse(candidate);
+            const keys = Object.keys(obj as Record<string, unknown>);
+            const looksLikeControlJson = ['needsMoreSearch', 'searchRequest', 'reasoning', 'isRigVedaRelated', 'action'].some(k => keys.includes(k));
+            if (looksLikeControlJson || keys.length > 0) {
+              endIndex = i + 1;
+              break;
+            }
+          } catch {
+            // keep scanning
+          }
+        }
+      }
+
+      if (endIndex !== -1) {
+        text = text.slice(endIndex).replace(/^\s+/, '');
+      }
+    }
+
+    // Sanitize malformed Devanagari characters
+    // Remove malformed Devanagari sequences (characters followed by question marks or garbled text)
+    text = text.replace(/[\u0900-\u097F]+[?]+/g, ''); // Remove Devanagari followed by question marks
+    text = text.replace(/[?]+[\u0900-\u097F]+/g, ''); // Remove question marks followed by Devanagari
+    
+    // Clean up multiple spaces and normalize whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+
+    return text;
+  }, []);
 
   /**
    * Add a message to the conversation
@@ -80,6 +157,12 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
    * Main process that orchestrates the multi-agent flow
    */
   const processUserMessage = useCallback(async (userQuery: string) => {
+    // Abort any previous run and create a new controller
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
     // Check if agents are initialized
     if (!orchestratorRef.current || !searcherRef.current || !generatorRef.current) {
       console.error('Agents not initialized');
@@ -122,7 +205,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       console.log('Context:', { conversationHistory: messages.length, currentAgent: 'orchestrator' });
       console.log('───────────────────────────────────────────────────────────');
 
-      const orchestratorResponse = await orchestratorRef.current.processUserQuery(context);
+      const orchestratorResponse = await orchestratorRef.current.processUserQuery(context, signal);
 
       // Log orchestrator response
       console.log('🤖 ORCHESTRATOR RESPONSE');
@@ -170,7 +253,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         // Add initial status message
         addStatusMessage('Generating multiple search approaches...', 'searcher');
 
-        const searchResponse = await searcherRef.current.search(searchContext);
+        const searchResponse = await searcherRef.current.search(searchContext, signal);
         currentSearchResultsRef.current = searchResponse.searchResults || [];
         
         // Track the initial search term (extract from user query)
@@ -204,7 +287,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         }
 
       // Step 3: Route to Generator
-      await processGeneratorFlow(userQuery, currentSearchResultsRef.current);
+      await processGeneratorFlow(userQuery, currentSearchResultsRef.current, signal);
     }
   } catch (error) {
     console.error('Multi-agent error:', error);
@@ -225,7 +308,8 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
    */
   const processGeneratorFlow = async (
     userQuery: string,
-    searchResults: SearchResult[]
+    searchResults: SearchResult[],
+    signal: AbortSignal
   ) => {
     setCurrentAgent('generator');
     addStatusMessage('Analyzing search results and generating answer...', 'generator');
@@ -314,7 +398,9 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       
       const additionalSearchResponse = await searcherRef.current.searchWithContext(
         newSearchTerm,
-        currentSearchResultsRef.current
+        currentSearchResultsRef.current,
+        searchTermsHistoryRef.current,
+        signal
       );
 
       currentSearchResultsRef.current = additionalSearchResponse.searchResults || [];
@@ -332,7 +418,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       }
 
       // Loop back to generator with new results
-      await processGeneratorFlow(userQuery, currentSearchResultsRef.current);
+      await processGeneratorFlow(userQuery, currentSearchResultsRef.current, signal);
       return;
     }
 
@@ -365,8 +451,13 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
       let fullContent = '';
       let chunkCount = 0;
-      for await (const chunk of generatorRef.current.streamAnswer(userQuery, searchResults)) {
+      for await (const chunk of generatorRef.current.streamAnswer(userQuery, searchResults, signal)) {
+        if (signal.aborted) {
+          break;
+        }
         fullContent += chunk;
+        // Clean any leading JSON/control output before updating UI
+        fullContent = sanitizeAssistantContent(fullContent);
         chunkCount++;
         setMessages(prev =>
           prev.map(msg =>

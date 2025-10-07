@@ -166,11 +166,13 @@ IMPORTANT:
 - You have ${this.maxSearchIterations - iterationCount} more search opportunities
 - Be strategic: use RigVeda knowledge to make smart search term suggestions
 - Focus on Sanskrit terms that would actually appear in the RigVeda corpus
-- **DO NOT suggest search terms that were already used** (see list above)
+- **CRITICAL: DO NOT suggest search terms that were already used** (see list above)
+- **CRITICAL: Generate a COMPLETELY DIFFERENT search term from previous attempts**
 - Make sure your searchRequest uses VALID UTF-8 Devanagari characters
 - Use Devanagari numerals carefully: १ (1), २ (2), ३ (3), ४ (4), ५ (5), ६ (6), ७ (7), ८ (8), ९ (9), ० (0)
 - If referencing Mandala numbers, you can use either: "मण्डल 10" or "मण्डल १०" (both valid)
 - Avoid mixing scripts unnecessarily - keep search terms focused
+- Be creative: try alternative Sanskrit synonyms, different deity names, or conceptual terms
 
 Output ONLY a JSON object:
 {
@@ -214,16 +216,9 @@ Output ONLY a JSON object:
         // Ensure the search request contains Devanagari script
         const hasDevanagari = /[\u0900-\u097F]/.test(analysis.searchRequest);
         
-        // Check for corrupted characters (replacement character or null bytes)
-        const hasCorruption = /[\uFFFD\u0000]/.test(analysis.searchRequest);
-        
-        if (hasDevanagari && !hasCorruption) {
+        if (hasDevanagari) {
           // Clean the search request to ensure proper UTF-8
-          // Remove replacement character (U+FFFD) and null bytes (U+0000)
-          const cleanedSearchRequest = analysis.searchRequest
-            .replace(/\uFFFD/g, '')
-            .replace(/\u0000/g, '')
-            .trim();
+          const cleanedSearchRequest = analysis.searchRequest.trim();
           
           console.log(`🔄 Requesting additional search: "${cleanedSearchRequest}"`);
           console.log(`   Reasoning: ${analysis.reasoning}`);
@@ -271,7 +266,8 @@ Output ONLY a JSON object:
    */
   async *streamAnswer(
     userQuery: string,
-    searchResults: SearchResult[]
+    searchResults: SearchResult[],
+    signal?: AbortSignal
   ): AsyncGenerator<string, void, unknown> {
     // If no search results, return early with explanation
     if (!searchResults || searchResults.length === 0) {
@@ -312,6 +308,7 @@ If the search results contain sufficient information:
         model: this.model,
         prompt: generationPrompt,
         temperature: 0.6,
+        signal,
       });
 
       for await (const chunk of result.textStream) {

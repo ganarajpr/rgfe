@@ -1,5 +1,3 @@
-import { AutoTokenizer, AutoModel, env } from '@huggingface/transformers';
-
 /**
  * Embedding Service using EmbeddingGemma with Transformers.js
  * Generates embeddings for text queries using Google's EmbeddingGemma model
@@ -7,11 +5,6 @@ import { AutoTokenizer, AutoModel, env } from '@huggingface/transformers';
  * Based on: https://glaforge.dev/posts/2025/09/08/in-browser-semantic-search-with-embeddinggemma/
  * Model: https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX
  */
-
-// Configure Transformers.js environment
-// Allow local model files and remote loading
-env.allowLocalModels = true;
-env.allowRemoteModels = true;
 
 export interface EmbeddingServiceConfig {
   modelId: string;
@@ -56,6 +49,16 @@ class EmbeddingService {
 
   private async _initializeInternal(progressCallback?: (progress: number, message: string) => void): Promise<void> {
     try {
+      if (typeof window === 'undefined') {
+        throw new Error('EmbeddingService can only be initialized in the browser');
+      }
+
+      // Dynamically import heavy transformers library on client only
+      const { AutoTokenizer, AutoModel, env } = await import('@huggingface/transformers');
+      // Configure Transformers.js environment
+      env.allowLocalModels = true;
+      env.allowRemoteModels = true;
+
       console.log('═══════════════════════════════════════════════════════════');
       console.log('🔧 INITIALIZING EMBEDDING MODEL');
       console.log('═══════════════════════════════════════════════════════════');

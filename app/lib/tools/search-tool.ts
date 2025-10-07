@@ -47,8 +47,8 @@ export class SearchTool {
       await searchEngine.initialize();
       console.log('✅ Search engine initialized');
 
-      // Initialize embedding service if using embeddings
-      if (this.config.useEmbeddings && DEFAULT_EMBEDDING_CONFIG.modelId) {
+      // Initialize embedding service if using embeddings (client-only)
+      if (this.config.useEmbeddings && DEFAULT_EMBEDDING_CONFIG.modelId && typeof window !== 'undefined') {
         try {
           const embeddingService = getEmbeddingService(DEFAULT_EMBEDDING_CONFIG);
           await embeddingService.initialize(progressCallback);
@@ -59,7 +59,7 @@ export class SearchTool {
           this.embeddingServiceInitialized = false;
         }
       } else {
-        console.log('ℹ️ Embedding service disabled, using text search only');
+        console.log('ℹ️ Embedding service unavailable (server or disabled), using text search only');
         this.embeddingServiceInitialized = false;
       }
 

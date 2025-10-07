@@ -22,7 +22,7 @@ export class SearcherAgent {
   /**
    * Translate English query to Sanskrit search terms with RigVeda context
    */
-  private async translateToSanskrit(englishQuery: string): Promise<string> {
+  private async translateToSanskrit(englishQuery: string, signal?: AbortSignal): Promise<string> {
     try {
       console.log(`🌐 Translating query to Sanskrit: "${englishQuery}"`);
       
@@ -49,7 +49,8 @@ Sanskrit keywords:`;
         temperature: 0.3,
       });
 
-      const sanskritTerms = (result.text || '').trim();
+      let sanskritTerms = (result.text || '').trim();
+      sanskritTerms = this.sanitizeUnicode(sanskritTerms);
       console.log(`   Translated to: "${sanskritTerms}"`);
       
       return sanskritTerms;
@@ -57,6 +58,22 @@ Sanskrit keywords:`;
       console.error('❌ Translation failed:', error);
       return englishQuery; // Fallback to original query
     }
+  }
+
+  /**
+   * Sanitize Unicode text to remove malformed characters
+   */
+  private sanitizeUnicode(text: string): string {
+    if (!text) return text;
+
+    // Remove malformed Devanagari sequences (characters followed by question marks or garbled text)
+    let sanitized = text.replace(/[\u0900-\u097F]+[?]+/g, ''); // Remove Devanagari followed by question marks
+    sanitized = sanitized.replace(/[?]+[\u0900-\u097F]+/g, ''); // Remove question marks followed by Devanagari
+    
+    // Clean up multiple spaces and normalize whitespace
+    sanitized = sanitized.replace(/\s+/g, ' ').trim();
+
+    return sanitized;
   }
 
   /**
@@ -90,7 +107,7 @@ Sanskrit keywords:`;
    * Generate a single focused search term/phrase IN SANSKRIT based on the request
    * This is called by the orchestrator with specific search context
    */
-  private async generateSearchTerm(searchRequest: string): Promise<string> {
+  private async generateSearchTerm(searchRequest: string, previousSearchTerms: string[] = [], signal?: AbortSignal): Promise<string> {
     try {
       console.log(`🧠 Generating Sanskrit search term for: "${searchRequest}"`);
       
@@ -105,11 +122,16 @@ RIGVEDA CORPUS KNOWLEDGE:
 
 Search Request: ${searchRequest}
 
+PREVIOUS SEARCH TERMS USED (DO NOT REPEAT THESE):
+${previousSearchTerms.length > 0 ? previousSearchTerms.map((term, i) => `${i + 1}. "${term}"`).join('\n') : 'None (this is the first search)'}
+
 THINK: What Sanskrit term, deity name, concept, or phrase would ACTUALLY appear in RigVeda verses for this topic?
 - For deity names: Use Sanskrit (e.g., "Agni" → "अग्नि")
 - For concepts: Use Vedic Sanskrit terms (e.g., "cosmic order" → "ऋत")
 - For famous hymns: Use Sanskrit name or key phrase (e.g., "Nasadiya" → "नासदीय" or "नासदासीत्")
 - For rituals: Use Sanskrit ritual terms (e.g., "sacrifice" → "यज्ञ")
+
+CRITICAL: Generate a NEW search term that is NOT in the list above. Be creative and think of alternative Sanskrit terms that would find different results.
 
 Generate ONE focused Sanskrit/Devanagari search term that would find this in the RigVeda.
 Return ONLY the Sanskrit search term in Devanagari script, without explanations or formatting.
@@ -122,7 +144,10 @@ Sanskrit search term:`;
         temperature: 0.3,
       });
 
-      const searchTerm = (result.text || '').trim();
+      let searchTerm = (result.text || '').trim();
+
+      // Sanitize malformed Unicode characters
+      searchTerm = this.sanitizeUnicode(searchTerm);
 
       // Check if we got Devanagari script
       if (searchTerm && /[\u0900-\u097F]/.test(searchTerm)) {
@@ -130,14 +155,14 @@ Sanskrit search term:`;
         return searchTerm;
       } else {
         console.log('   No Sanskrit term generated, attempting translation...');
-        const sanskritQuery = await this.translateToSanskrit(searchRequest);
-        return sanskritQuery;
+        const sanskritQuery = await this.translateToSanskrit(searchRequest, signal);
+        return this.sanitizeUnicode(sanskritQuery);
       }
     } catch (error) {
       console.error('❌ Failed to generate search term:', error);
       // Try to translate as fallback
-      const sanskritQuery = await this.translateToSanskrit(searchRequest);
-      return sanskritQuery;
+      const sanskritQuery = await this.translateToSanskrit(searchRequest, signal);
+      return this.sanitizeUnicode(sanskritQuery);
     }
   }
 
@@ -145,7 +170,7 @@ Sanskrit search term:`;
    * Perform a single focused search based on the search request
    * The orchestrator provides what should be searched
    */
-  async search(context: AgentContext, searchRequest?: string): Promise<AgentResponse> {
+  async search(context: AgentContext, signal?: AbortSignal, searchRequest?: string): Promise<AgentResponse> {
     const requestToSearch = searchRequest || context.userQuery;
 
     try {
@@ -155,7 +180,7 @@ Sanskrit search term:`;
       }
 
       // Generate single focused search term
-      const searchTerm = await this.generateSearchTerm(requestToSearch);
+      const searchTerm = await this.generateSearchTerm(requestToSearch, [], signal);
       
       // Get the search tool
       const searchTool = getSearchTool();
@@ -252,7 +277,9 @@ Sanskrit search term:`;
    */
   async searchWithContext(
     searchRequest: string,
-    previousResults: SearchResult[]
+    previousResults: SearchResult[],
+    previousSearchTerms: string[] = [],
+    signal?: AbortSignal
   ): Promise<AgentResponse> {
     try {
       // Ensure search tool is initialized
@@ -261,7 +288,7 @@ Sanskrit search term:`;
       }
 
       // Generate focused search term for this request
-      const searchTerm = await this.generateSearchTerm(searchRequest);
+      const searchTerm = await this.generateSearchTerm(searchRequest, previousSearchTerms, signal);
       
       // Get the search tool
       const searchTool = getSearchTool();

@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useWebLLM } from './hooks/useWebLLM';
 import { useMultiAgent } from './hooks/useMultiAgent';
 import { createWebLLMProvider } from './lib/webllm-provider';
-import LLMSelector from './components/LLMSelector';
+import { createGeminiProvider } from './lib/gemini-provider';
+import LLMSelector, { ModelSelection, ProviderType } from './components/LLMSelector';
 import LoadingScreen from './components/LoadingScreen';
 import AgentChatInterface from './components/AgentChatInterface';
 
@@ -22,12 +23,21 @@ export default function Home() {
   } = useWebLLM();
 
   const [isInitialCheck, setIsInitialCheck] = useState(true);
+  const [providerType, setProviderType] = useState<ProviderType | null>(null);
+  const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
+  const [geminiModelReady, setGeminiModelReady] = useState(false);
 
-  // Create AI SDK provider from our already-loaded WebLLM engine
+  // Create AI SDK provider based on provider type
   const aiModel = useMemo(() => {
-    if (!engine || !currentModel || !isModelLoaded) return null;
-    return createWebLLMProvider(engine, currentModel);
-  }, [engine, currentModel, isModelLoaded]);
+    if (providerType === 'gemini' && geminiApiKey) {
+      console.log('Creating Gemini provider');
+      return createGeminiProvider(geminiApiKey);
+    } else if (providerType === 'webllm' && engine && currentModel && isModelLoaded) {
+      console.log('Creating WebLLM provider');
+      return createWebLLMProvider(engine, currentModel);
+    }
+    return null;
+  }, [providerType, geminiApiKey, engine, currentModel, isModelLoaded]);
 
   // Initialize multi-agent system
   const {
@@ -42,21 +52,35 @@ export default function Home() {
 
   useEffect(() => {
     const initializeModel = async () => {
-      // Check if there's a previously loaded model
-      const existingModel = checkForExistingModel();
+      // Check for saved provider type
+      const savedProvider = localStorage.getItem('provider_type') as ProviderType | null;
+      const savedGeminiKey = localStorage.getItem('gemini_api_key');
       
-      if (existingModel) {
-        // If there's a cached model, try to load it
-        console.log('Found cached model:', existingModel);
-        const success = await loadModel(existingModel);
-        if (!success) {
-          // If loading fails, clear the invalid model from cache
-          console.log('Failed to load cached model, clearing cache');
-          await clearModelCache();
+      if (savedProvider === 'gemini' && savedGeminiKey) {
+        console.log('Found saved Gemini configuration');
+        setProviderType('gemini');
+        setGeminiApiKey(savedGeminiKey);
+        setGeminiModelReady(true);
+      } else if (savedProvider === 'webllm') {
+        // Check if there's a previously loaded WebLLM model
+        const existingModel = checkForExistingModel();
+        
+        if (existingModel) {
+          // If there's a cached model, try to load it
+          console.log('Found cached WebLLM model:', existingModel);
+          setProviderType('webllm');
+          const success = await loadModel(existingModel);
+          if (!success) {
+            // If loading fails, clear the invalid model from cache
+            console.log('Failed to load cached model, clearing cache');
+            await clearModelCache();
+            setProviderType(null);
+          }
+        } else {
+          console.log('No cached WebLLM model found');
         }
       } else {
-        // No cached model found, don't auto-load anything
-        console.log('No cached model found');
+        console.log('No saved provider configuration found');
       }
       
       setIsInitialCheck(false);
@@ -66,10 +90,27 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSelectModel = async (modelId: string) => {
-    await loadModel(modelId);
-    // If model loading fails, the selector will remain visible
-    // since isModelLoaded stays false
+  const handleSelectModel = async (selection: ModelSelection) => {
+    console.log('Model selection:', selection);
+    
+    if (selection.provider === 'gemini') {
+      // Save provider type and API key
+      localStorage.setItem('provider_type', 'gemini');
+      if (selection.apiKey) {
+        localStorage.setItem('gemini_api_key', selection.apiKey);
+        setGeminiApiKey(selection.apiKey);
+      }
+      setProviderType('gemini');
+      setGeminiModelReady(true);
+      console.log('Gemini provider configured with API key');
+    } else if (selection.provider === 'webllm') {
+      // Save provider type
+      localStorage.setItem('provider_type', 'webllm');
+      setProviderType('webllm');
+      await loadModel(selection.modelId);
+      // If model loading fails, the selector will remain visible
+      // since isModelLoaded stays false
+    }
   };
 
   const handleNewChat = () => {
@@ -83,19 +124,39 @@ export default function Home() {
   };
 
   const handleSendMessage = async (message: string) => {
-    if (!aiModel || !isModelLoaded) {
+    if (!aiModel) {
       console.error('Model not ready');
       return;
     }
+    
+    if (providerType === 'gemini' && !geminiModelReady) {
+      console.error('Gemini model not ready');
+      return;
+    }
+    
+    if (providerType === 'webllm' && !isModelLoaded) {
+      console.error('WebLLM model not loaded');
+      return;
+    }
+    
     await processUserMessage(message);
   };
 
   const handleClearCache = async () => {
-    await clearModelCache();
+    if (providerType === 'webllm') {
+      await clearModelCache();
+    } else if (providerType === 'gemini') {
+      // Clear Gemini configuration
+      localStorage.removeItem('gemini_api_key');
+      localStorage.removeItem('provider_type');
+      setGeminiApiKey(null);
+      setProviderType(null);
+      setGeminiModelReady(false);
+    }
   };
 
   // Show loading screen during initial check or model loading
-  if (isInitialCheck || isLoading) {
+  if (isInitialCheck || (providerType === 'webllm' && isLoading)) {
     return (
       <LoadingScreen
         progress={loadingProgress}
@@ -104,12 +165,21 @@ export default function Home() {
     );
   }
 
-  // Show model selector if no model is loaded (initial or after error)
-  if (!isModelLoaded) {
+  // Show model selector if no provider is configured or model is not ready
+  const shouldShowSelector = 
+    !providerType || 
+    (providerType === 'webllm' && !isModelLoaded) ||
+    (providerType === 'gemini' && !geminiModelReady);
+
+  if (shouldShowSelector) {
     return <LLMSelector onSelectModel={handleSelectModel} isOpen={true} />;
   }
 
-  // Show multi-agent chat interface once model is loaded
+  // Show multi-agent chat interface once model is ready
+  const displayModelName = providerType === 'gemini' 
+    ? 'Gemini 1.5 Flash' 
+    : currentModel || 'Unknown';
+
   return (
     <AgentChatInterface
       onSendMessage={handleSendMessage}
@@ -118,7 +188,7 @@ export default function Home() {
       currentAgent={currentAgent}
       onNewChat={handleNewChat}
       onClearCache={handleClearCache}
-      modelName={currentModel}
+      modelName={displayModelName}
     />
   );
 }

@@ -13,6 +13,7 @@ interface AgentChatInterfaceProps {
   onNewChat: () => void;
   onClearCache?: () => Promise<void>;
   modelName?: string;
+  onStop?: () => void;
 }
 
 const AgentChatInterface = ({
@@ -23,6 +24,7 @@ const AgentChatInterface = ({
   onNewChat,
   onClearCache,
   modelName,
+  onStop,
 }: AgentChatInterfaceProps) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -116,6 +118,15 @@ const AgentChatInterface = ({
         </div>
         
         <div className="flex items-center gap-2">
+          {isProcessing && onStop && (
+            <button
+              onClick={onStop}
+              className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors rounded-md"
+              title="Stop current operation"
+            >
+              Stop
+            </button>
+          )}
           {messages.length > 0 && (
             <button
               onClick={handleDownloadPDF}

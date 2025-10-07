@@ -50,7 +50,7 @@ export class OrchestratorAgent {
   /**
    * Process user query and determine routing
    */
-  async processUserQuery(context: AgentContext): Promise<AgentResponse> {
+  async processUserQuery(context: AgentContext, signal?: AbortSignal): Promise<AgentResponse> {
     const userQuery = context.userQuery;
 
     // Create classification prompt
@@ -81,10 +81,11 @@ Output ONLY a JSON object with your classification decision.`;
 
     try {
       // Get classification from LLM
-      const result = await streamText({
+      const result = streamText({
         model: this.model,
         prompt: classificationPrompt,
         temperature: 0.3,
+        signal,
       });
 
       let fullResponse = '';

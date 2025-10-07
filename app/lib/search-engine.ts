@@ -1,5 +1,5 @@
 import { create, insert, search, Orama } from '@orama/orama';
-import { loadOramaDataBinary, DocumentWithEmbedding } from './binary-persistence';
+import type { DocumentWithEmbedding } from './binary-persistence';
 
 /**
  * Search Engine using Orama vector search
@@ -54,7 +54,8 @@ class SearchEngine {
     try {
       console.log('🔧 Initializing search engine...');
       
-      // Load documents from binary file
+      // Load documents from binary file (lazy import to avoid server bundling)
+      const { loadOramaDataBinary } = await import('./binary-persistence');
       this.documents = await loadOramaDataBinary(this.config.binaryFilePath);
       
       console.log(`📚 Loaded ${this.documents.length} documents`);
