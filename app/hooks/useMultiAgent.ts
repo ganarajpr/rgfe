@@ -398,8 +398,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       const additionalSearchResponse = await searcherRef.current.searchWithContext(
         newSearchTerm,
         currentSearchResultsRef.current,
-        searchTermsHistoryRef.current,
-        signal
+        searchTermsHistoryRef.current
       );
 
       currentSearchResultsRef.current = additionalSearchResponse.searchResults || [];

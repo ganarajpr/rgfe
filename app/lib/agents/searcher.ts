@@ -107,7 +107,7 @@ Sanskrit keywords:`;
    * Generate a single focused search term/phrase IN SANSKRIT based on the request
    * This is called by the orchestrator with specific search context
    */
-  private async generateSearchTerm(searchRequest: string, previousSearchTerms: string[] = [], signal?: AbortSignal): Promise<string> {
+  private async generateSearchTerm(searchRequest: string, previousSearchTerms: string[] = []): Promise<string> {
     try {
       console.log(`🧠 Generating Sanskrit search term for: "${searchRequest}"`);
       
@@ -155,13 +155,13 @@ Sanskrit search term:`;
         return searchTerm;
       } else {
         console.log('   No Sanskrit term generated, attempting translation...');
-        const sanskritQuery = await this.translateToSanskrit(searchRequest, signal);
+        const sanskritQuery = await this.translateToSanskrit(searchRequest);
         return this.sanitizeUnicode(sanskritQuery);
       }
     } catch (error) {
       console.error('❌ Failed to generate search term:', error);
       // Try to translate as fallback
-      const sanskritQuery = await this.translateToSanskrit(searchRequest, signal);
+      const sanskritQuery = await this.translateToSanskrit(searchRequest);
       return this.sanitizeUnicode(sanskritQuery);
     }
   }
@@ -180,7 +180,7 @@ Sanskrit search term:`;
       }
 
       // Generate single focused search term
-      const searchTerm = await this.generateSearchTerm(requestToSearch, [], signal);
+      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
       
       // Get the search tool
       const searchTool = getSearchTool();
@@ -278,8 +278,7 @@ Sanskrit search term:`;
   async searchWithContext(
     searchRequest: string,
     previousResults: SearchResult[],
-    previousSearchTerms: string[] = [],
-    signal?: AbortSignal
+    previousSearchTerms: string[] = []
   ): Promise<AgentResponse> {
     try {
       // Ensure search tool is initialized
@@ -288,7 +287,7 @@ Sanskrit search term:`;
       }
 
       // Generate focused search term for this request
-      const searchTerm = await this.generateSearchTerm(searchRequest, previousSearchTerms, signal);
+      const searchTerm = await this.generateSearchTerm(searchRequest, previousSearchTerms);
       
       // Get the search tool
       const searchTool = getSearchTool();
