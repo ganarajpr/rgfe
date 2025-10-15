@@ -18,11 +18,11 @@ function getImportanceDotColor(importance: ImportanceLevel): string {
   return 'bg-gray-300';
 }
 
-function getRelevanceBarColor(relevance: number): string {
-  if (relevance > 0.7) return 'bg-blue-500';
-  if (relevance > 0.5) return 'bg-gray-400';
-  return 'bg-gray-300';
-}
+// function getRelevanceBarColor(relevance: number): string {
+//   if (relevance > 0.7) return 'bg-blue-500';
+//   if (relevance > 0.5) return 'bg-gray-400';
+//   return 'bg-gray-300';
+// }
 
 export function CitationVerse({ verse, importance = 'medium' }: CitationVerseProps) {
   const [isExpanded, setIsExpanded] = useState(false);

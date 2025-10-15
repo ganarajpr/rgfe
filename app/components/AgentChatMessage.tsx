@@ -106,7 +106,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
     const searchTerm = message.metadata?.searchTerm || '';
     const iteration = message.metadata?.searchIteration || 0;
     const maxIterations = message.metadata?.maxSearchIterations || 3;
-    const avgRelevanceScore = message.metadata?.avgRelevanceScore || 0;
+    // const avgRelevanceScore = message.metadata?.avgRelevanceScore || 0; // Currently unused
     
     return (
       <div className="flex gap-4 py-4 px-4">

@@ -244,7 +244,7 @@ Output ONLY a JSON object:
         console.log(`📊 Applying verse evaluations to ${analysis.verseEvaluations.length} verses`);
         
         updatedSearchResults = searchResults.map(result => {
-          const evaluation = analysis.verseEvaluations.find((e: any) => e.id === result.id);
+          const evaluation = analysis.verseEvaluations.find((e: { id: string; importance?: string; isFiltered?: boolean }) => e.id === result.id);
           if (evaluation) {
             return {
               ...result,

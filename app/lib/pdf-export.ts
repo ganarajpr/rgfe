@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 
 export interface ConversationMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system' | 'thinking' | 'verses' | 'search-results' | 'search-status' | 'orchestrator' | 'searcher' | 'analyzer' | 'generator';
+  role: 'user' | 'assistant' | 'system' | 'thinking' | 'verses' | 'search-results' | 'search-status' | 'orchestrator' | 'searcher' | 'analyzer' | 'translator' | 'generator';
   content: string;
   timestamp: Date;
   metadata?: {
@@ -93,8 +93,8 @@ export async function exportConversationToPDF(
       // Skip message header for system/status messages (they're already styled differently)
       if (message.role !== 'system' && message.role !== 'thinking' && 
           message.role !== 'orchestrator' && message.role !== 'searcher' && 
-          message.role !== 'analyzer' && message.role !== 'generator' &&
-          message.role !== 'search-status') {
+          message.role !== 'analyzer' && message.role !== 'translator' && 
+          message.role !== 'generator' && message.role !== 'search-status') {
         // Message header
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
@@ -205,8 +205,8 @@ export async function exportConversationToPDF(
         currentY += 5;
       } else if (message.role === 'system' || message.role === 'thinking' || 
                  message.role === 'orchestrator' || message.role === 'searcher' || 
-                 message.role === 'analyzer' || message.role === 'generator' ||
-                 message.role === 'search-status') {
+                 message.role === 'analyzer' || message.role === 'translator' || 
+                 message.role === 'generator' || message.role === 'search-status') {
         // Status messages - smaller and gray
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
@@ -417,6 +417,8 @@ function getRoleLabel(role: string): string {
     case 'analyzer':
       return 'Status';
     case 'generator':
+      return 'Status';
+    case 'translator':
       return 'Status';
     default:
       return 'Info';

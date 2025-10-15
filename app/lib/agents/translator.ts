@@ -181,7 +181,7 @@ Output ONLY a JSON object:
         }
         
         const selectedSearchResults = searchResults.map(result => {
-          const selectedVerse = translationResult.selectedVerses.find((v: any) => v.id === result.id);
+          const selectedVerse = translationResult.selectedVerses.find((v: { id: string; translation?: string; relevance?: number }) => v.id === result.id);
           if (selectedVerse) {
             return {
               ...result,
