@@ -1,4 +1,4 @@
-export type AgentRole = 'orchestrator' | 'searcher' | 'generator';
+export type AgentRole = 'orchestrator' | 'searcher' | 'analyzer' | 'generator';
 
 export type MessageType = 
   | 'user'           // User's original message
@@ -7,7 +7,8 @@ export type MessageType =
   | 'agent-internal' // Internal agent-to-agent communication
   | 'thinking'       // Agent thinking/processing status
   | 'verses'         // Search results/verses display
-  | 'search-status'; // Search iteration status
+  | 'search-status'  // Search iteration status
+  | 'search-results'; // Search results from specific iteration
 
 export type ImportanceLevel = 'high' | 'medium' | 'low';
 
@@ -34,6 +35,8 @@ export interface AgentMessage {
     maxSearchIterations?: number;
     highlightSections?: HighlightSection[];
     verseImportance?: Record<string, ImportanceLevel>; // Map verse ID to importance
+    searchTerm?: string; // The specific search term used for this iteration
+    avgRelevanceScore?: number; // Average relevance score for this search iteration
   };
 }
 

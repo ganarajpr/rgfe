@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { OrchestratorAgent } from '../lib/agents/orchestrator';
 import { SearcherAgent } from '../lib/agents/searcher';
+import { AnalyzerAgent } from '../lib/agents/analyzer';
 import { GeneratorAgent } from '../lib/agents/generator';
 import { 
   AgentMessage, 
@@ -26,6 +27,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
   // Initialize agents with refs
   const orchestratorRef = useRef<OrchestratorAgent | null>(null);
   const searcherRef = useRef<SearcherAgent | null>(null);
+  const analyzerRef = useRef<AnalyzerAgent | null>(null);
   const generatorRef = useRef<GeneratorAgent | null>(null);
 
   const searchIterationRef = useRef<number>(0);
@@ -141,6 +143,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     if (model) {
       orchestratorRef.current = new OrchestratorAgent(model);
       searcherRef.current = new SearcherAgent(model);
+      analyzerRef.current = new AnalyzerAgent(model);
       generatorRef.current = new GeneratorAgent(model);
       
       // Set up coordinator callback for searcher
@@ -163,7 +166,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
     // Check if agents are initialized
-    if (!orchestratorRef.current || !searcherRef.current || !generatorRef.current) {
+    if (!orchestratorRef.current || !searcherRef.current || !analyzerRef.current || !generatorRef.current) {
       console.error('Agents not initialized');
       addMessage(
         'System is still initializing. Please wait a moment and try again.',
@@ -275,18 +278,25 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
           addStatusMessage(searchResponse.statusMessage, 'searcher');
         }
 
-        // Add verses display message if search results exist
+        // Add search results display message for initial search
         if (searchResponse.searchResults && searchResponse.searchResults.length > 0) {
+          const avgRelevance = searchResponse.searchResults.reduce((sum, r) => sum + r.relevance, 0) / searchResponse.searchResults.length;
           addMessage(
             `Found ${searchResponse.searchResults.length} relevant verses from Sanskrit texts.`,
-            'orchestrator',
-            'verses',
-            { searchResults: searchResponse.searchResults }
+            'searcher',
+            'search-results',
+            { 
+              searchResults: searchResponse.searchResults,
+              searchTerm: userQuery,
+              searchIteration: 0,
+              maxSearchIterations: 3,
+              avgRelevanceScore: avgRelevance
+            }
           );
         }
 
-      // Step 3: Route to Generator
-      await processGeneratorFlow(userQuery, currentSearchResultsRef.current, signal);
+      // Step 3: Route to Analyzer
+      await processAnalyzerFlow(userQuery, currentSearchResultsRef.current, signal);
     }
   } catch (error) {
     console.error('Multi-agent error:', error);
@@ -303,60 +313,53 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 }, [messages, addMessage, addStatusMessage]);
 
   /**
-   * Process the generator flow (which may loop back to searcher)
+   * Process the analyzer flow (which may loop back to searcher)
    */
-  const processGeneratorFlow = async (
+  const processAnalyzerFlow = async (
     userQuery: string,
     searchResults: SearchResult[],
     signal: AbortSignal
   ) => {
-    setCurrentAgent('generator');
-    addStatusMessage('Analyzing search results and generating answer...', 'generator');
+    setCurrentAgent('analyzer');
+    addStatusMessage('Analyzing search results...', 'analyzer');
 
-    const generatorContext: AgentContext = {
-      userQuery,
-      conversationHistory: messages,
-      currentAgent: 'generator',
-      searchResults,
-    };
-
-    if (!generatorRef.current) {
-      throw new Error('Generator agent not initialized');
+    if (!analyzerRef.current) {
+      throw new Error('Analyzer agent not initialized');
     }
 
-    // Log generator request
+    // Log analyzer request
     console.log('═══════════════════════════════════════════════════════════');
-    console.log('📝 GENERATOR REQUEST');
+    console.log('🔍 ANALYZER REQUEST');
     console.log('═══════════════════════════════════════════════════════════');
     console.log('Query:', userQuery);
     console.log('Search Results:', searchResults.length);
     console.log('Iteration:', searchIterationRef.current);
     console.log('───────────────────────────────────────────────────────────');
 
-    const generatorResponse = await generatorRef.current.generate(
-      generatorContext,
+    const analyzerResponse = await analyzerRef.current.analyze(
+      userQuery,
       searchResults,
       searchIterationRef.current,
-      searchTermsHistoryRef.current // Pass search history
+      searchTermsHistoryRef.current
     );
 
-    // Log generator response
-    console.log('📝 GENERATOR RESPONSE');
+    // Log analyzer response
+    console.log('🔍 ANALYZER RESPONSE');
     console.log('───────────────────────────────────────────────────────────');
-    console.log('Requires More Search:', generatorResponse.requiresMoreSearch || false);
-    console.log('Is Complete:', generatorResponse.isComplete);
-    console.log('Next Agent:', generatorResponse.nextAgent || 'none');
-    console.log('Search Query:', generatorResponse.searchQuery || 'none');
-    console.log('Status:', generatorResponse.statusMessage);
+    console.log('Requires More Search:', analyzerResponse.requiresMoreSearch || false);
+    console.log('Is Complete:', analyzerResponse.isComplete);
+    console.log('Next Agent:', analyzerResponse.nextAgent || 'none');
+    console.log('Search Query:', analyzerResponse.searchQuery || 'none');
+    console.log('Status:', analyzerResponse.statusMessage);
     console.log('═══════════════════════════════════════════════════════════\n');
 
-    // Check if generator needs more search
-    if (generatorResponse.requiresMoreSearch && generatorResponse.nextAgent === 'searcher') {
+    // Check if analyzer needs more search
+    if (analyzerResponse.requiresMoreSearch && analyzerResponse.nextAgent === 'searcher') {
       searchIterationRef.current++;
       
       // Only add status message if there's meaningful content (not empty, not JSON)
-      if (generatorResponse.statusMessage && !generatorResponse.statusMessage.includes('{')) {
-        addStatusMessage(generatorResponse.statusMessage, 'generator');
+      if (analyzerResponse.statusMessage && !analyzerResponse.statusMessage.includes('{')) {
+        addStatusMessage(analyzerResponse.statusMessage, 'analyzer');
       }
 
       // Perform refined search
@@ -370,7 +373,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       console.log(`🔍 ADDITIONAL SEARCH REQUEST (Iteration ${searchIterationRef.current})`);
       console.log('═══════════════════════════════════════════════════════════');
       console.log('Original Query:', userQuery);
-      console.log('Search Request:', generatorResponse.searchQuery || '');
+      console.log('Search Request:', analyzerResponse.searchQuery || '');
       console.log('Previous Results Count:', currentSearchResultsRef.current.length);
       console.log(`Iteration: ${searchIterationRef.current} of 3`);
       console.log('───────────────────────────────────────────────────────────');
@@ -383,11 +386,11 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         { 
           searchIteration: searchIterationRef.current,
           maxSearchIterations: 3,
-          searchQuery: generatorResponse.searchQuery 
+          searchQuery: analyzerResponse.searchQuery 
         }
       );
 
-      const newSearchTerm = generatorResponse.searchQuery || '';
+      const newSearchTerm = analyzerResponse.searchQuery || '';
       
       // Track this search term
       if (newSearchTerm && !searchTermsHistoryRef.current.includes(newSearchTerm)) {
@@ -406,7 +409,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       // Log additional search response
       console.log('🔍 ADDITIONAL SEARCH RESPONSE');
       console.log('───────────────────────────────────────────────────────────');
-      console.log('Search Request:', generatorResponse.searchQuery || '');
+      console.log('Search Request:', analyzerResponse.searchQuery || '');
       console.log('Total Results Now:', currentSearchResultsRef.current.length);
       console.log('Status:', additionalSearchResponse.statusMessage);
       console.log('═══════════════════════════════════════════════════════════\n');
@@ -415,10 +418,65 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         addStatusMessage(additionalSearchResponse.statusMessage, 'searcher');
       }
 
-      // Loop back to generator with new results
-      await processGeneratorFlow(userQuery, currentSearchResultsRef.current, signal);
+      // Add search results display message for additional search
+      if (additionalSearchResponse.searchResults && additionalSearchResponse.searchResults.length > 0) {
+        const avgRelevance = additionalSearchResponse.searchResults.reduce((sum, r) => sum + r.relevance, 0) / additionalSearchResponse.searchResults.length;
+        addMessage(
+          `Found ${additionalSearchResponse.searchResults.length} additional verses from Sanskrit texts.`,
+          'searcher',
+          'search-results',
+          { 
+            searchResults: additionalSearchResponse.searchResults,
+            searchTerm: newSearchTerm,
+            searchIteration: searchIterationRef.current,
+            maxSearchIterations: 3,
+            avgRelevanceScore: avgRelevance
+          }
+        );
+      }
+
+      // Loop back to analyzer with new results
+      await processAnalyzerFlow(userQuery, currentSearchResultsRef.current, signal);
       return;
     }
+
+    // Analysis complete, proceed to generator
+    if (analyzerResponse.isComplete) {
+      await processGeneratorFlow(userQuery, searchResults, signal);
+    }
+  };
+
+  /**
+   * Process the generator flow (final answer generation)
+   */
+  const processGeneratorFlow = async (
+    userQuery: string,
+    searchResults: SearchResult[],
+    signal: AbortSignal
+  ) => {
+    setCurrentAgent('generator');
+    addStatusMessage('Generating comprehensive answer...', 'generator');
+
+    if (!generatorRef.current) {
+      throw new Error('Generator agent not initialized');
+    }
+
+    // Log generator request
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📝 GENERATOR REQUEST');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('Query:', userQuery);
+    console.log('Search Results:', searchResults.length);
+    console.log('───────────────────────────────────────────────────────────');
+
+    const generatorResponse = await generatorRef.current.generate();
+
+    // Log generator response
+    console.log('📝 GENERATOR RESPONSE');
+    console.log('───────────────────────────────────────────────────────────');
+    console.log('Is Complete:', generatorResponse.isComplete);
+    console.log('Status:', generatorResponse.statusMessage);
+    console.log('═══════════════════════════════════════════════════════════\n');
 
     // Generate final answer with streaming
     if (generatorResponse.isComplete) {

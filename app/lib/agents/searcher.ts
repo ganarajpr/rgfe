@@ -125,11 +125,23 @@ Search Request: ${searchRequest}
 PREVIOUS SEARCH TERMS USED (DO NOT REPEAT THESE):
 ${previousSearchTerms.length > 0 ? previousSearchTerms.map((term, i) => `${i + 1}. "${term}"`).join('\n') : 'None (this is the first search)'}
 
-THINK: What Sanskrit term, deity name, concept, or phrase would ACTUALLY appear in RigVeda verses for this topic?
-- For deity names: Use Sanskrit (e.g., "Agni" → "अग्नि")
-- For concepts: Use Vedic Sanskrit terms (e.g., "cosmic order" → "ऋत")
+COSINE SIMILARITY SEARCH STRATEGY:
+This search uses cosine similarity on embeddings, so think about SEMANTICALLY RELATED terms that would have similar vector representations:
+- Synonyms and alternative names (e.g., "fire" → "अग्नि", "वह्नि", "पावक")
+- Related concepts (e.g., "sacrifice" → "यज्ञ", "हवन", "अग्निहोत्र")
+- Different perspectives (e.g., "creation" → "सृष्टि", "निर्माण", "उत्पत्ति")
+- Ritual contexts (e.g., "prayer" → "स्तुति", "प्रार्थना", "मंत्र")
+- Geographic/contextual terms (e.g., "heaven" → "स्वर्ग", "द्यौः", "परमव्योम")
+
+CREATIVE SEARCH TERM GENERATION:
+- For deity names: Use Sanskrit (e.g., "Agni" → "अग्नि") but also consider epithets (e.g., "वैश्वानर", "हुताशन")
+- For concepts: Use Vedic Sanskrit terms (e.g., "cosmic order" → "ऋत") and related terms (e.g., "सत्य", "धर्म")
 - For famous hymns: Use Sanskrit name or key phrase (e.g., "Nasadiya" → "नासदीय" or "नासदासीत्")
-- For rituals: Use Sanskrit ritual terms (e.g., "sacrifice" → "यज्ञ")
+- For rituals: Use Sanskrit ritual terms (e.g., "sacrifice" → "यज्ञ") and related concepts (e.g., "हवि", "आहुति")
+- For philosophical concepts: Think of multiple Sanskrit expressions (e.g., "truth" → "सत्य", "ऋत", "तत्त्व")
+
+THINK: What Sanskrit term, deity name, concept, or phrase would ACTUALLY appear in RigVeda verses for this topic?
+Consider what terms would have similar semantic embeddings in the corpus.
 
 CRITICAL: Generate a NEW search term that is NOT in the list above. Be creative and think of alternative Sanskrit terms that would find different results.
 

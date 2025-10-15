@@ -100,6 +100,60 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
     );
   }
 
+  // Search results display (specific iteration results)
+  if (message.messageType === 'search-results') {
+    const searchResults = message.metadata?.searchResults || [];
+    const searchTerm = message.metadata?.searchTerm || '';
+    const iteration = message.metadata?.searchIteration || 0;
+    const maxIterations = message.metadata?.maxSearchIterations || 3;
+    const avgRelevanceScore = message.metadata?.avgRelevanceScore || 0;
+    
+    return (
+      <div className="flex gap-4 py-4 px-4">
+        <div className="flex-1 space-y-3 overflow-hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-green-600">
+              🔍 Search Iteration {iteration + 1}/{maxIterations + 1}
+            </span>
+            {searchTerm && (
+              <span className="text-xs text-green-600 font-mono bg-white px-2 py-1 rounded border">
+                {searchTerm}
+              </span>
+            )}
+            <span className="text-xs text-gray-400">
+              {message.timestamp.toLocaleTimeString()}
+            </span>
+          </div>
+          
+          <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-green-800 font-medium">
+                Found {searchResults.length} verses
+              </div>
+              {avgRelevanceScore > 0 && (
+                <div className="text-xs text-green-600">
+                  Avg relevance: {(avgRelevanceScore * 100).toFixed(1)}%
+                </div>
+              )}
+            </div>
+            
+            {searchResults.length > 0 && (
+              <div className="space-y-2">
+                {searchResults.map((result) => (
+                  <CitationVerse
+                    key={result.id}
+                    verse={result}
+                    importance="medium"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // User messages - Dark background with light text for contrast
   if (message.messageType === 'user') {
     return (

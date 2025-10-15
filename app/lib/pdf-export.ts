@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 
 export interface ConversationMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system' | 'thinking' | 'verses' | 'orchestrator' | 'searcher' | 'generator';
+  role: 'user' | 'assistant' | 'system' | 'thinking' | 'verses' | 'search-results' | 'search-status' | 'orchestrator' | 'searcher' | 'analyzer' | 'generator';
   content: string;
   timestamp: Date;
   metadata?: {
@@ -15,6 +15,10 @@ export interface ConversationMessage {
       source?: string;
       bookContext?: string;
     }>;
+    searchTerm?: string;
+    searchIteration?: number;
+    maxSearchIterations?: number;
+    avgRelevanceScore?: number;
   };
 }
 
@@ -89,7 +93,8 @@ export async function exportConversationToPDF(
       // Skip message header for system/status messages (they're already styled differently)
       if (message.role !== 'system' && message.role !== 'thinking' && 
           message.role !== 'orchestrator' && message.role !== 'searcher' && 
-          message.role !== 'generator') {
+          message.role !== 'analyzer' && message.role !== 'generator' &&
+          message.role !== 'search-status') {
         // Message header
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
@@ -113,16 +118,28 @@ export async function exportConversationToPDF(
       pdf.setTextColor(0, 0, 0);
 
       // Handle different message types
-      if (message.role === 'verses' && message.metadata?.searchResults) {
-        // Special handling for verses - styled like the UI
-        pdf.setFillColor(239, 246, 255); // Blue background (bg-blue-50)
+      if ((message.role === 'verses' || message.role === 'search-results') && message.metadata?.searchResults) {
+        // Special handling for verses/search-results - styled like the UI
+        const isSearchResults = message.role === 'search-results';
+        const bgColor = isSearchResults ? [240, 253, 244] : [239, 246, 255]; // Green for search-results, blue for verses
+        const textColor = isSearchResults ? [22, 101, 52] : [30, 64, 175]; // Green for search-results, blue for verses
+        
+        pdf.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
         const boxY = currentY - 5;
         const boxHeight = 15;
         pdf.rect(margin - 5, boxY, contentWidth + 10, boxHeight, 'F');
         
-        pdf.setTextColor(30, 64, 175); // Blue text (text-blue-800)
+        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`📜 ${message.content}`, margin, currentY);
+        
+        if (isSearchResults && message.metadata?.searchIteration !== undefined) {
+          const iteration = message.metadata.searchIteration + 1;
+          const maxIterations = (message.metadata.maxSearchIterations || 3) + 1;
+          const searchTerm = message.metadata.searchTerm || '';
+          pdf.text(`🔍 Search Iteration ${iteration}/${maxIterations}${searchTerm ? `: ${searchTerm}` : ''}`, margin, currentY);
+        } else {
+          pdf.text(`📜 ${message.content}`, margin, currentY);
+        }
         currentY += lineHeight * 2;
         
         message.metadata.searchResults.forEach((verse) => {
@@ -179,7 +196,8 @@ export async function exportConversationToPDF(
         currentY += 5;
       } else if (message.role === 'system' || message.role === 'thinking' || 
                  message.role === 'orchestrator' || message.role === 'searcher' || 
-                 message.role === 'generator') {
+                 message.role === 'analyzer' || message.role === 'generator' ||
+                 message.role === 'search-status') {
         // Status messages - smaller and gray
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
@@ -262,9 +280,15 @@ function getRoleLabel(role: string): string {
       return 'Processing';
     case 'verses':
       return 'Found Verses';
+    case 'search-results':
+      return 'Search Results';
+    case 'search-status':
+      return 'Search Status';
     case 'orchestrator':
       return 'Status';
     case 'searcher':
+      return 'Status';
+    case 'analyzer':
       return 'Status';
     case 'generator':
       return 'Status';

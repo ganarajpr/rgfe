@@ -80,6 +80,7 @@ const AgentChatInterface = ({
     const agentInfo = {
       orchestrator: { label: 'Analyzing' },
       searcher: { label: 'Searching' },
+      analyzer: { label: 'Analyzing Results' },
       generator: { label: 'Generating' },
     };
 
