@@ -7,6 +7,7 @@ export class SearcherAgent {
   private readonly model: LanguageModelV2;
   private searchToolInitialized = false;
   private coordinatorCallback?: (message: string) => void;
+  private readonly previousSearchEmbeddings: Array<{ term: string; embedding: number[] }> = [];
 
   constructor(model: LanguageModelV2) {
     this.model = model;
@@ -77,6 +78,53 @@ Sanskrit keywords:`;
   }
 
   /**
+   * Calculate cosine similarity between two embedding vectors
+   */
+  private calculateCosineSimilarity(embedding1: number[], embedding2: number[]): number {
+    if (embedding1.length !== embedding2.length) {
+      throw new Error('Embedding dimensions must match');
+    }
+
+    let dotProduct = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+
+    for (let i = 0; i < embedding1.length; i++) {
+      dotProduct += embedding1[i] * embedding2[i];
+      norm1 += embedding1[i] * embedding1[i];
+      norm2 += embedding2[i] * embedding2[i];
+    }
+
+    const magnitude = Math.sqrt(norm1) * Math.sqrt(norm2);
+    return magnitude === 0 ? 0 : dotProduct / magnitude;
+  }
+
+  /**
+   * Check if a new search term is semantically similar to previous ones
+   */
+  private async isSemanticallySimilar(
+    newTerm: string,
+    newEmbedding: number[],
+    threshold: number = 0.85
+  ): Promise<boolean> {
+    if (this.previousSearchEmbeddings.length === 0) {
+      return false;
+    }
+
+    for (const cached of this.previousSearchEmbeddings) {
+      const similarity = this.calculateCosineSimilarity(newEmbedding, cached.embedding);
+      if (similarity > threshold) {
+        console.log(`🔄 Detected semantically similar search terms:`);
+        console.log(`   Previous: "${cached.term}" (similarity: ${similarity.toFixed(3)})`);
+        console.log(`   New: "${newTerm}" (similarity: ${similarity.toFixed(3)})`);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Initialize the search tool (should be called once on app startup)
    */
   async initializeSearchTool(progressCallback?: (progress: number, message: string) => void): Promise<void> {
@@ -104,14 +152,10 @@ Sanskrit keywords:`;
   }
 
   /**
-   * Generate a single focused search term/phrase IN SANSKRIT based on the request
-   * This is called by the orchestrator with specific search context
+   * Create the prompt for generating Sanskrit search terms
    */
-  private async generateSearchTerm(searchRequest: string, previousSearchTerms: string[] = []): Promise<string> {
-    try {
-      console.log(`🧠 Generating Sanskrit search term for: "${searchRequest}"`);
-      
-      const prompt = `You are a RigVeda scholar and expert. For the given search request, generate ONE focused search term or phrase IN SANSKRIT/DEVANAGARI SCRIPT that would help find relevant information in the RigVeda corpus.
+  private createSearchTermPrompt(searchRequest: string, previousSearchTerms: string[]): string {
+    return `You are a RigVeda scholar and expert. For the given search request, generate ONE focused search phrase IN SANSKRIT/DEVANAGARI SCRIPT that would help find relevant information in the RigVeda corpus.
 
 RIGVEDA CORPUS KNOWLEDGE:
 - 10 Mandalas (books) containing hymns to various deities
@@ -125,57 +169,121 @@ Search Request: ${searchRequest}
 PREVIOUS SEARCH TERMS USED (DO NOT REPEAT THESE):
 ${previousSearchTerms.length > 0 ? previousSearchTerms.map((term, i) => `${i + 1}. "${term}"`).join('\n') : 'None (this is the first search)'}
 
+MULTI-WORD PHRASE STRATEGY:
+Generate 2-4 word Sanskrit phrases that provide rich semantic context for embedding similarity:
+- Combine deity + action: "सोम पवमान यज्ञ" (Soma purification ritual)
+- Combine concept + context: "इन्द्र वृत्र युद्ध" (Indra's battle with Vritra)
+- Combine ritual + deity: "अग्नि होत्र देव" (Agni fire offering to gods)
+- Combine philosophical + practical: "ऋत सत्य धर्म" (cosmic order, truth, duty)
+
+EXAMPLES OF GOOD MULTI-WORD PHRASES:
+- "सोम पवमान यज्ञ" (Soma purification sacrifice)
+- "इन्द्र वृत्र युद्ध" (Indra's battle with Vritra)
+- "अग्नि होत्र देव" (Agni fire offering to gods)
+- "ऋत सत्य धर्म" (cosmic order, truth, duty)
+- "नासदीय सृष्टि सूक्त" (Nasadiya creation hymn)
+- "पुरुष सूक्त ब्रह्म" (Purusha Sukta Brahman)
+
 COSINE SIMILARITY SEARCH STRATEGY:
-This search uses cosine similarity on embeddings, so think about SEMANTICALLY RELATED terms that would have similar vector representations:
-- Synonyms and alternative names (e.g., "fire" → "अग्नि", "वह्नि", "पावक")
-- Related concepts (e.g., "sacrifice" → "यज्ञ", "हवन", "अग्निहोत्र")
-- Different perspectives (e.g., "creation" → "सृष्टि", "निर्माण", "उत्पत्ति")
-- Ritual contexts (e.g., "prayer" → "स्तुति", "प्रार्थना", "मंत्र")
-- Geographic/contextual terms (e.g., "heaven" → "स्वर्ग", "द्यौः", "परमव्योम")
+This search uses cosine similarity on embeddings, so longer phrases provide better semantic context:
+- Include related concepts, ritual contexts, and deity epithets
+- Combine multiple Sanskrit terms that would appear together in verses
+- Think about what phrases would have similar vector representations in the corpus
 
-CREATIVE SEARCH TERM GENERATION:
-- For deity names: Use Sanskrit (e.g., "Agni" → "अग्नि") but also consider epithets (e.g., "वैश्वानर", "हुताशन")
-- For concepts: Use Vedic Sanskrit terms (e.g., "cosmic order" → "ऋत") and related terms (e.g., "सत्य", "धर्म")
-- For famous hymns: Use Sanskrit name or key phrase (e.g., "Nasadiya" → "नासदीय" or "नासदासीत्")
-- For rituals: Use Sanskrit ritual terms (e.g., "sacrifice" → "यज्ञ") and related concepts (e.g., "हवि", "आहुति")
-- For philosophical concepts: Think of multiple Sanskrit expressions (e.g., "truth" → "सत्य", "ऋत", "तत्त्व")
+THINK: What 2-4 word Sanskrit phrase would ACTUALLY appear in RigVeda verses for this topic?
+Consider what multi-word combinations would have similar semantic embeddings in the corpus.
 
-THINK: What Sanskrit term, deity name, concept, or phrase would ACTUALLY appear in RigVeda verses for this topic?
-Consider what terms would have similar semantic embeddings in the corpus.
+CRITICAL: Generate a NEW multi-word phrase that is NOT in the list above. Be creative and think of alternative Sanskrit phrases that would find different results.
 
-CRITICAL: Generate a NEW search term that is NOT in the list above. Be creative and think of alternative Sanskrit terms that would find different results.
+Generate ONE focused 2-4 word Sanskrit/Devanagari phrase that would find this in the RigVeda.
+Return ONLY the Sanskrit phrase in Devanagari script, without explanations or formatting.
 
-Generate ONE focused Sanskrit/Devanagari search term that would find this in the RigVeda.
-Return ONLY the Sanskrit search term in Devanagari script, without explanations or formatting.
+Sanskrit search phrase:`;
+  }
 
-Sanskrit search term:`;
+  /**
+   * Validate and process a generated search term
+   */
+  private async validateAndProcessSearchTerm(
+    searchTerm: string,
+    searchRequest: string
+  ): Promise<string | null> {
+    // Sanitize malformed Unicode characters
+    const sanitizedTerm = this.sanitizeUnicode(searchTerm);
 
-      const result = await generateText({
-        model: this.model,
-        prompt,
-        temperature: 0.3,
-      });
-
-      let searchTerm = (result.text || '').trim();
-
-      // Sanitize malformed Unicode characters
-      searchTerm = this.sanitizeUnicode(searchTerm);
-
-      // Check if we got Devanagari script
-      if (searchTerm && /[\u0900-\u097F]/.test(searchTerm)) {
-        console.log(`   Generated Sanskrit search term: "${searchTerm}"`);
-        return searchTerm;
-      } else {
-        console.log('   No Sanskrit term generated, attempting translation...');
-        const sanskritQuery = await this.translateToSanskrit(searchRequest);
-        return this.sanitizeUnicode(sanskritQuery);
-      }
-    } catch (error) {
-      console.error('❌ Failed to generate search term:', error);
-      // Try to translate as fallback
+    // Check if we got Devanagari script
+    if (!sanitizedTerm || !/[\u0900-\u097F]/.test(sanitizedTerm)) {
+      console.log('   No Sanskrit term generated, attempting translation...');
       const sanskritQuery = await this.translateToSanskrit(searchRequest);
       return this.sanitizeUnicode(sanskritQuery);
     }
+
+    console.log(`   Generated Sanskrit search phrase: "${sanitizedTerm}"`);
+    
+    // Check for semantic similarity with previous searches
+    try {
+      const { getEmbeddingService } = await import('../embedding-service');
+      const embeddingService = getEmbeddingService();
+      const embedding = await embeddingService.generateEmbedding(sanitizedTerm);
+      
+      const isSimilar = await this.isSemanticallySimilar(sanitizedTerm, embedding, 0.85);
+      if (isSimilar) {
+        console.log(`   ⚠️ Generated term is too similar to previous searches, retrying...`);
+        return null; // Signal to retry
+      }
+      
+      // Cache the embedding for future deduplication
+      this.previousSearchEmbeddings.push({ term: sanitizedTerm, embedding });
+      console.log(`   ✅ Generated unique search phrase: "${sanitizedTerm}"`);
+      return sanitizedTerm;
+    } catch (embeddingError) {
+      console.warn('   ⚠️ Could not check semantic similarity, using generated term:', embeddingError);
+      return sanitizedTerm;
+    }
+  }
+
+  /**
+   * Generate a single focused search term/phrase IN SANSKRIT based on the request
+   * This is called by the orchestrator with specific search context
+   */
+  private async generateSearchTerm(searchRequest: string, previousSearchTerms: string[] = []): Promise<string> {
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        console.log(`🧠 Generating Sanskrit search term for: "${searchRequest}" (attempt ${attempt + 1}/${maxRetries})`);
+        
+        const prompt = this.createSearchTermPrompt(searchRequest, previousSearchTerms);
+        const result = await generateText({
+          model: this.model,
+          prompt,
+          temperature: 0.3 + (attempt * 0.2), // Increase temperature on retries
+        });
+
+        const searchTerm = (result.text || '').trim();
+        const processedTerm = await this.validateAndProcessSearchTerm(searchTerm, searchRequest);
+        
+        if (processedTerm !== null) {
+          return processedTerm;
+        }
+        
+        attempt++;
+      } catch (error) {
+        console.error(`❌ Failed to generate search term (attempt ${attempt + 1}):`, error);
+        attempt++;
+        
+        if (attempt >= maxRetries) {
+          // Try to translate as fallback
+          const sanskritQuery = await this.translateToSanskrit(searchRequest);
+          return this.sanitizeUnicode(sanskritQuery);
+        }
+      }
+    }
+
+    // Final fallback
+    const sanskritQuery = await this.translateToSanskrit(searchRequest);
+    return this.sanitizeUnicode(sanskritQuery);
   }
 
   /**
@@ -313,8 +421,21 @@ Sanskrit search term:`;
 
       let newSearchResults: SearchResult[] = [];
       try {
-        newSearchResults = await searchTool.search(searchTerm, 8);
+        const searchResult = await searchTool.searchWithEmbedding(searchTerm, 8);
+        newSearchResults = searchResult.results;
         console.log(`   ✅ Found ${newSearchResults.length} results`);
+        
+        // Cache the embedding for this search term if we have results and embedding
+        if (newSearchResults.length > 0 && searchResult.queryEmbedding) {
+          // Only cache if not already cached (avoid duplicates)
+          const alreadyCached = this.previousSearchEmbeddings.some(
+            cached => cached.term === searchTerm
+          );
+          if (!alreadyCached) {
+            this.previousSearchEmbeddings.push({ term: searchTerm, embedding: searchResult.queryEmbedding });
+            console.log(`   📝 Cached embedding for future deduplication`);
+          }
+        }
       } catch (error) {
         console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
       }

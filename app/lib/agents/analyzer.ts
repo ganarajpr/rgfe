@@ -14,10 +14,25 @@ The search corpus contains verses from the RigVeda, the oldest of the four Vedas
 - Reference format: Mandala.Hymn.Verse (e.g., 10.129.1)
 
 Your role in the ITERATIVE SEARCH-ANALYSIS LOOP:
-1. ANALYZE search results to evaluate quality and sufficiency
-2. CHECK RELEVANCE SCORES - If scores are LOW (<0.3), make intelligent guesses for better search terms
-3. If INSUFFICIENT: Request ONE specific search with a RigVeda-contextual Sanskrit term
-4. If SUFFICIENT or loop limit reached: Signal completion for answer generation
+1. EVALUATE each verse individually for relevancy to the user's query
+2. ASSIGN importance levels (high/medium/low) to each verse
+3. MARK irrelevant verses as filtered (but keep them in results)
+4. COUNT only non-filtered verses as "relevant"
+5. STOP when sufficient verses found OR 5 iterations reached
+6. If INSUFFICIENT relevant verses: Request ONE specific search with a RigVeda-contextual Sanskrit term
+
+VERSE-BY-VERSE EVALUATION:
+For each search result, you must:
+- Evaluate if the verse directly relates to the user's query
+- Assign importance level: high (directly answers), medium (partially relevant), low (tangentially related)
+- Mark as filtered if completely irrelevant to the query
+- Provide brief reasoning for each evaluation
+
+IMPORTANCE LEVELS:
+- **HIGH**: Verse directly addresses the user's question with specific, relevant information
+- **MEDIUM**: Verse is related to the topic but provides supporting or contextual information
+- **LOW**: Verse mentions the topic but is only tangentially relevant
+- **FILTERED**: Verse is completely irrelevant to the user's query
 
 ANALYSIS PHASE (when evaluating search results):
 - Review ALL search results AND their relevance scores
@@ -28,7 +43,7 @@ ANALYSIS PHASE (when evaluating search results):
 - **HIGH SCORES (>0.6)**: Results directly address the query
 - Check if results DIRECTLY address the user's question
 - Identify specific gaps in information
-- Consider the current iteration count (max 3 loops)
+- Consider the current iteration count (max 5 loops)
 
 When requesting additional search (especially for low scores):
 - Provide ONE focused search term in Sanskrit/Devanagari (देवनागरी)
@@ -46,13 +61,13 @@ INTELLIGENT SEARCH TERM GENERATION:
 CRITICAL RULES:
 - You MUST ONLY analyze based on the RigVeda search results provided
 - NEVER use your own general knowledge or information from other texts
-- If results are insufficient even after 3 loops, state that clearly
+- If results are insufficient even after 5 loops, state that clearly
 - ONLY discuss the RigVeda - NOT other Vedas, Upanishads, Puranas, or epics
 - When scores are low, use your RigVeda knowledge to suggest better search terms
 - Maintain scholarly rigor by only using verified sources
 
 Response format:
-- ALWAYS output ONLY a JSON object with: { "needsMoreSearch": boolean, "searchRequest": "sanskrit term", "reasoning": "explanation including score analysis" }
+- ALWAYS output ONLY a JSON object with: { "needsMoreSearch": boolean, "searchRequest": "sanskrit term", "reasoning": "explanation including score analysis", "verseEvaluations": [{"id": "verse_id", "importance": "high|medium|low", "isFiltered": boolean, "reasoning": "brief explanation"}] }
 - If needsMoreSearch is false, searchRequest can be empty string
 - Ensure searchRequest uses VALID UTF-8 Devanagari characters
 - Use Devanagari numerals carefully: १ (1), २ (2), ३ (3), ४ (4), ५ (5), ६ (6), ७ (7), ८ (8), ९ (9), ० (0)
@@ -62,7 +77,7 @@ Response format:
 
 export class AnalyzerAgent {
   private readonly model: LanguageModelV2;
-  private readonly maxSearchIterations = 3; // Maximum 3 iterations (0, 1, 2, 3 = 4 total attempts - 1 initial + 3 refinements)
+  private readonly maxSearchIterations = 5; // Maximum 5 iterations (0, 1, 2, 3, 4, 5 = 6 total attempts - 1 initial + 5 refinements)
 
   constructor(model: LanguageModelV2) {
     this.model = model;
@@ -77,12 +92,26 @@ export class AnalyzerAgent {
     iterationCount: number,
     previousSearchTerms: string[] = []
   ): Promise<AgentResponse> {
+    // Count relevant verses (non-filtered)
+    const relevantVerseCount = searchResults.filter(r => !r.isFiltered).length;
+    
     if (iterationCount >= this.maxSearchIterations) {
       console.log(`⚠️ Max search iterations (${this.maxSearchIterations}) reached, proceeding with available results`);
       return {
         content: 'Maximum search iterations reached. Proceeding with available results.',
         isComplete: true,
         statusMessage: 'Analysis complete - max iterations reached',
+        searchResults: searchResults, // Return results with evaluations
+      };
+    }
+    
+    if (relevantVerseCount >= 5) {
+      console.log(`✅ Sufficient relevant verses (${relevantVerseCount}) found, proceeding to translation`);
+      return {
+        content: 'Sufficient relevant verses found. Proceeding to translation.',
+        isComplete: true,
+        statusMessage: 'Analysis complete - sufficient relevant verses found',
+        searchResults: searchResults, // Return results with evaluations
       };
     }
 
@@ -112,6 +141,8 @@ export class AnalyzerAgent {
 User Query: ${userQuery}
 
 Current Iteration: ${iterationCount + 1} of ${this.maxSearchIterations + 1}
+Relevant Verses Found: ${relevantVerseCount} (need 5 to stop)
+Total Results: ${searchResults.length}
 
 RELEVANCE SCORE ANALYSIS:
 - Average Score: ${(avgScore * 100).toFixed(1)}% (${getScoreLabel(avgScore)})
@@ -120,13 +151,18 @@ RELEVANCE SCORE ANALYSIS:
 
 Available Search Results (gathered so far):
 ${searchResults.map((r, i) => `
-${i + 1}. ${r.title}
+${i + 1}. ID: ${r.id}
+   Title: ${r.title}
    Relevance: ${(r.relevance * 100).toFixed(1)}% ${getResultLabel(r.relevance)}
    Text: ${r.content?.substring(0, 200)}...
    Source: ${r.source || 'RigVeda'}
 `).join('\n')}
 
-TASK: Analyze if these search results provide sufficient information to answer the user's query comprehensively.
+TASK: 
+1. Evaluate each verse individually for relevancy to the user's query
+2. Assign importance levels (high/medium/low) to each verse
+3. Mark irrelevant verses as filtered (but keep them)
+4. Determine if more search is needed based on relevant verse count
 
 PREVIOUS SEARCH TERMS USED (DO NOT REPEAT THESE):
 ${previousSearchTerms.length > 0 ? previousSearchTerms.map((term, i) => `${i + 1}. "${term}"`).join('\n') : 'None (this is the first search)'}
@@ -155,7 +191,15 @@ Output ONLY a JSON object:
 {
   "needsMoreSearch": boolean,
   "searchRequest": "ONE NEW focused Sanskrit/Devanagari search term not in the list above",
-  "reasoning": "brief explanation including score analysis and what you're looking for"
+  "reasoning": "brief explanation including score analysis and what you're looking for",
+  "verseEvaluations": [
+    {
+      "id": "verse_id_from_above",
+      "importance": "high|medium|low",
+      "isFiltered": boolean,
+      "reasoning": "brief explanation for this verse"
+    }
+  ]
 }`;
 
     try {
@@ -181,6 +225,7 @@ Output ONLY a JSON object:
             content: 'Analysis complete - proceeding with available results.',
             isComplete: true,
             statusMessage: 'Analysis complete - proceeding with generation',
+            searchResults: searchResults,
           };
         }
       } catch (parseError) {
@@ -189,7 +234,35 @@ Output ONLY a JSON object:
           content: 'Analysis complete - proceeding with available results.',
           isComplete: true,
           statusMessage: 'Analysis complete - proceeding with generation',
+          searchResults: searchResults,
         };
+      }
+
+      // Apply verse evaluations to search results
+      let updatedSearchResults = [...searchResults];
+      if (analysis.verseEvaluations && Array.isArray(analysis.verseEvaluations)) {
+        console.log(`📊 Applying verse evaluations to ${analysis.verseEvaluations.length} verses`);
+        
+        updatedSearchResults = searchResults.map(result => {
+          const evaluation = analysis.verseEvaluations.find((e: any) => e.id === result.id);
+          if (evaluation) {
+            return {
+              ...result,
+              importance: evaluation.importance,
+              isFiltered: evaluation.isFiltered,
+            };
+          }
+          return result;
+        });
+        
+        // Log evaluation summary
+        const highCount = updatedSearchResults.filter(r => r.importance === 'high').length;
+        const mediumCount = updatedSearchResults.filter(r => r.importance === 'medium').length;
+        const lowCount = updatedSearchResults.filter(r => r.importance === 'low').length;
+        const filteredCount = updatedSearchResults.filter(r => r.isFiltered).length;
+        const relevantCount = updatedSearchResults.filter(r => !r.isFiltered).length;
+        
+        console.log(`   📈 Evaluation Summary: High=${highCount}, Medium=${mediumCount}, Low=${lowCount}, Filtered=${filteredCount}, Relevant=${relevantCount}`);
       }
 
       // Check if more search is needed
@@ -210,6 +283,7 @@ Output ONLY a JSON object:
             requiresMoreSearch: true,
             searchQuery: cleanedSearchRequest,
             statusMessage: `Need more information: ${analysis.reasoning}`,
+            searchResults: updatedSearchResults,
           };
         } else {
           console.log('⚠️ Search request not in Sanskrit/Devanagari script, proceeding with available results');
@@ -217,6 +291,7 @@ Output ONLY a JSON object:
             content: 'Analysis complete - proceeding with available results.',
             isComplete: true,
             statusMessage: 'Analysis complete - proceeding with generation',
+            searchResults: updatedSearchResults,
           };
         }
       }
@@ -226,6 +301,7 @@ Output ONLY a JSON object:
         content: 'Analysis complete - sufficient information gathered.',
         isComplete: true,
         statusMessage: 'Analysis complete - proceeding with generation',
+        searchResults: updatedSearchResults,
       };
     } catch (error) {
       console.error('❌ Analyzer error:', error);
@@ -233,6 +309,7 @@ Output ONLY a JSON object:
         content: 'Analysis complete - proceeding with available results.',
         isComplete: true,
         statusMessage: 'Analysis complete - proceeding with generation',
+        searchResults: searchResults,
       };
     }
   }

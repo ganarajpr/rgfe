@@ -2,6 +2,11 @@ import { getSearchEngine, SearchResultItem } from '../search-engine';
 import { SearchResult } from '../agents/types';
 import { getEmbeddingService, DEFAULT_EMBEDDING_CONFIG } from '../embedding-service';
 
+export interface SearchResultWithEmbedding {
+  results: SearchResult[];
+  queryEmbedding?: number[];
+}
+
 /**
  * Search Tool for the Searcher Agent
  * Provides real semantic search capabilities over the Sanskrit text corpus
@@ -78,6 +83,17 @@ export class SearchTool {
    * @returns Array of search results in agent-friendly format
    */
   async search(query: string, limit?: number): Promise<SearchResult[]> {
+    const result = await this.searchWithEmbedding(query, limit);
+    return result.results;
+  }
+
+  /**
+   * Perform a semantic search and return both results and query embedding
+   * @param query - The search query text
+   * @param limit - Maximum number of results (optional)
+   * @returns Search results with query embedding
+   */
+  async searchWithEmbedding(query: string, limit?: number): Promise<SearchResultWithEmbedding> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -96,7 +112,7 @@ export class SearchTool {
           const queryEmbedding = await embeddingService.generateEmbedding(query);
           
           // Perform vector search
-          const minScore = this.config.minScore || 0.1;
+          const minScore = this.config.minScore ?? 0.1;
           const results = await searchEngine.vectorSearch(
             queryEmbedding,
             searchLimit,
@@ -106,7 +122,10 @@ export class SearchTool {
           console.log(`✅ Found ${results.length} results using vector search`);
           
           // Convert to agent-friendly format
-          return this.convertToAgentResults(results);
+          return {
+            results: this.convertToAgentResults(results),
+            queryEmbedding: queryEmbedding
+          };
         } catch (error) {
           console.warn('⚠️ Vector search failed, falling back to text search:', error);
           // Fall through to text search below
@@ -120,7 +139,10 @@ export class SearchTool {
       console.log(`✅ Found ${results.length} results using text search`);
       
       // Convert to agent-friendly format
-      return this.convertToAgentResults(results);
+      return {
+        results: this.convertToAgentResults(results),
+        queryEmbedding: undefined // No embedding available for text search
+      };
     } catch (error) {
       console.error('❌ Search failed:', error);
       throw error;
@@ -145,7 +167,7 @@ export class SearchTool {
       
       const searchEngine = getSearchEngine();
       const searchLimit = limit || this.config.defaultLimit || 10;
-      const minScore = this.config.minScore || 0.1;
+      const minScore = this.config.minScore ?? 0.1;
       
       // Perform vector search
       const results = await searchEngine.vectorSearch(

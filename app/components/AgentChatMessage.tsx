@@ -20,7 +20,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
   if (message.messageType === 'system' || message.messageType === 'thinking') {
     return (
       <div className="flex gap-3 py-2 px-4 mx-auto max-w-4xl">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-gray-500 italic">
           <span>{message.content}</span>
         </div>
       </div>
@@ -130,11 +130,6 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
               <div className="text-sm text-green-800 font-medium">
                 Found {searchResults.length} verses
               </div>
-              {avgRelevanceScore > 0 && (
-                <div className="text-xs text-green-600">
-                  Avg relevance: {(avgRelevanceScore * 100).toFixed(1)}%
-                </div>
-              )}
             </div>
             
             {searchResults.length > 0 && (

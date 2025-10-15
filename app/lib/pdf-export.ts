@@ -177,11 +177,20 @@ export async function exportConversationToPDF(
             currentY += lineHeight;
           }
 
-          // Content with preserved newlines
+          // Content with preserved newlines and Devanagari support
           pdf.setFont('helvetica', 'normal');
           pdf.setFontSize(10);
           pdf.setTextColor(55, 65, 81); // Gray (text-gray-700)
           const content = verse.content || verse.title || 'No content available';
+          
+          // Check if content contains Devanagari characters
+          if (containsDevanagari(content)) {
+            // For Devanagari text, use a slightly larger font and bold
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(11);
+            pdf.setTextColor(75, 85, 99); // Slightly darker for better readability
+          }
+          
           // Split by newlines first to preserve formatting
           const contentLines = content.split('\n');
           contentLines.forEach(line => {
@@ -208,29 +217,113 @@ export async function exportConversationToPDF(
       } else {
         // Regular message content with styled backgrounds
         const content = message.content;
-        const lines = pdf.splitTextToSize(content, contentWidth - 8);
-        const contentHeight = lineHeight * lines.length + 6;
         
-        if (message.role === 'user') {
+        if (message.role === 'assistant') {
+          // Process Sanskrit text for assistant messages
+          const { sanskritParts, translationParts, regularParts } = processSanskritText(content);
+          
+          if (sanskritParts.length > 0 || translationParts.length > 0) {
+            // Handle special Sanskrit formatting
+            let totalHeight = 0;
+            
+            // Regular text parts
+            for (const part of regularParts) {
+              if (part.trim()) {
+                const lines = pdf.splitTextToSize(part, contentWidth - 8);
+                totalHeight += lineHeight * lines.length;
+              }
+            }
+            
+            // Sanskrit verses
+            for (const sanskritText of sanskritParts) {
+              const lines = pdf.splitTextToSize(sanskritText, contentWidth - 12);
+              totalHeight += (lineHeight * lines.length) + 8; // Extra space for Sanskrit
+            }
+            
+            // Translations
+            for (const translationText of translationParts) {
+              const lines = pdf.splitTextToSize(translationText, contentWidth - 12);
+              totalHeight += (lineHeight * lines.length) + 4; // Extra space for translation
+            }
+            
+            // Draw background
+            pdf.setDrawColor(229, 231, 235); // border-gray-200
+            pdf.setFillColor(249, 250, 251); // bg-gray-50
+            pdf.setLineWidth(1);
+            pdf.roundedRect(margin, currentY - 4, contentWidth, totalHeight + 8, 2, 2, 'FD');
+            
+            let currentContentY = currentY;
+            
+            // Render regular text parts
+            for (const part of regularParts) {
+              if (part.trim()) {
+                const lines = pdf.splitTextToSize(part, contentWidth - 8);
+                pdf.setFont('helvetica', 'normal');
+                pdf.setTextColor(55, 65, 81); // text-gray-700
+                pdf.text(lines, margin + 4, currentContentY);
+                currentContentY += lineHeight * lines.length;
+              }
+            }
+            
+            // Render Sanskrit verses with special styling
+            for (const sanskritText of sanskritParts) {
+              currentContentY += 4; // Extra spacing
+              
+              // Sanskrit verse background
+              pdf.setFillColor(255, 248, 220); // Light amber background
+              pdf.setDrawColor(251, 191, 36); // Amber border
+              pdf.setLineWidth(2);
+              const sanskritLines = pdf.splitTextToSize(sanskritText, contentWidth - 12);
+              const sanskritHeight = (lineHeight * sanskritLines.length) + 6;
+              pdf.roundedRect(margin + 4, currentContentY - 3, contentWidth - 8, sanskritHeight, 2, 2, 'FD');
+              
+              // Sanskrit text
+              pdf.setFont('helvetica', 'bold');
+              pdf.setTextColor(146, 64, 14); // Dark amber text
+              pdf.setFontSize(11); // Slightly larger for Sanskrit
+              pdf.text(sanskritLines, margin + 6, currentContentY);
+              currentContentY += sanskritHeight + 2;
+            }
+            
+            // Render translations with special styling
+            for (const translationText of translationParts) {
+              const translationLines = pdf.splitTextToSize(translationText, contentWidth - 12);
+              pdf.setFont('helvetica', 'italic');
+              pdf.setTextColor(75, 85, 99); // Gray text for translation
+              pdf.setFontSize(10);
+              pdf.text(translationLines, margin + 6, currentContentY);
+              currentContentY += lineHeight * translationLines.length + 2;
+            }
+            
+            currentY += totalHeight + 8;
+          } else {
+            // Regular assistant message without Sanskrit
+            const lines = pdf.splitTextToSize(content, contentWidth - 8);
+            const contentHeight = lineHeight * lines.length + 6;
+            
+            pdf.setDrawColor(229, 231, 235); // border-gray-200
+            pdf.setFillColor(249, 250, 251); // bg-gray-50
+            pdf.setLineWidth(1);
+            pdf.roundedRect(margin, currentY - 4, contentWidth, contentHeight, 2, 2, 'FD');
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(55, 65, 81); // text-gray-700
+            pdf.text(lines, margin + 4, currentY);
+            currentY += lineHeight * lines.length + 4;
+          }
+        } else if (message.role === 'user') {
           // User messages: Dark background with light text (matching screen)
+          const lines = pdf.splitTextToSize(content, contentWidth - 8);
+          const contentHeight = lineHeight * lines.length + 6;
+          
           pdf.setFillColor(31, 41, 55); // bg-gray-800
           pdf.roundedRect(margin, currentY - 4, contentWidth, contentHeight, 2, 2, 'F');
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(243, 244, 246); // Light text (text-gray-100)
           pdf.text(lines, margin + 4, currentY);
           currentY += lineHeight * lines.length + 4;
-        } else if (message.role === 'assistant') {
-          // Assistant messages: Light bordered background (matching screen)
-          pdf.setDrawColor(229, 231, 235); // border-gray-200
-          pdf.setFillColor(249, 250, 251); // bg-gray-50
-          pdf.setLineWidth(1);
-          pdf.roundedRect(margin, currentY - 4, contentWidth, contentHeight, 2, 2, 'FD');
-          pdf.setFont('helvetica', 'normal');
-          pdf.setTextColor(55, 65, 81); // text-gray-700
-          pdf.text(lines, margin + 4, currentY);
-          currentY += lineHeight * lines.length + 4;
         } else {
           // Other messages: Default styling
+          const lines = pdf.splitTextToSize(content, contentWidth);
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(55, 65, 81); // Dark gray (text-gray-700)
           pdf.text(lines, margin, currentY);
@@ -263,6 +356,39 @@ export async function exportConversationToPDF(
     console.error('Error exporting to PDF:', error);
     throw new Error('Failed to export conversation to PDF');
   }
+}
+
+/**
+ * Check if text contains Devanagari characters
+ */
+function containsDevanagari(text: string): boolean {
+  return /[\u0900-\u097F]/.test(text);
+}
+
+/**
+ * Process text to handle Sanskrit verses and translations
+ */
+function processSanskritText(text: string): { sanskritParts: string[], translationParts: string[], regularParts: string[] } {
+  const sanskritParts: string[] = [];
+  const translationParts: string[] = [];
+  const regularParts: string[] = [];
+  
+  // Split by Sanskrit and translation tags
+  const parts = text.split(/(<sanskrit>.*?<\/sanskrit>|<translation>.*?<\/translation>)/gs);
+  
+  for (const part of parts) {
+    if (part.startsWith('<sanskrit>') && part.endsWith('</sanskrit>')) {
+      const sanskritText = part.replace(/<\/?sanskrit>/g, '').trim();
+      sanskritParts.push(sanskritText);
+    } else if (part.startsWith('<translation>') && part.endsWith('</translation>')) {
+      const translationText = part.replace(/<\/?translation>/g, '').trim();
+      translationParts.push(translationText);
+    } else if (part.trim()) {
+      regularParts.push(part);
+    }
+  }
+  
+  return { sanskritParts, translationParts, regularParts };
 }
 
 /**

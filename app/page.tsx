@@ -177,7 +177,7 @@ export default function Home() {
 
   // Show multi-agent chat interface once model is ready
   const displayModelName = providerType === 'gemini' 
-    ? 'Gemini 1.5 Flash' 
+    ? 'Gemini 2.5 Flash' 
     : currentModel || 'Unknown';
 
   return (

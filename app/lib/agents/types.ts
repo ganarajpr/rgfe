@@ -1,4 +1,4 @@
-export type AgentRole = 'orchestrator' | 'searcher' | 'analyzer' | 'generator';
+export type AgentRole = 'orchestrator' | 'searcher' | 'analyzer' | 'translator' | 'generator';
 
 export type MessageType = 
   | 'user'           // User's original message
@@ -43,10 +43,13 @@ export interface AgentMessage {
 export interface SearchResult {
   id: string;
   title: string;
-  content?: string; // Make optional to handle null/undefined cases
+  content?: string; // Sanskrit text
+  translation?: string; // English translation
   relevance: number;
   source?: string;
   bookContext?: string; // e.g., "7.50.1" - the specific verse reference
+  importance?: ImportanceLevel; // Assigned by analyzer
+  isFiltered?: boolean; // Marked as filtered by analyzer
 }
 
 export interface AgentContext {

@@ -9,7 +9,9 @@ const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing i
    - If the request is NOT about the RigVeda → Respond directly with a polite decline
 
 2. COORDINATE between agents:
-   - When receiving results from SEARCHER agent → Route to GENERATOR agent
+   - When receiving results from SEARCHER agent → Route to ANALYZER agent
+   - When receiving results from ANALYZER agent → Route to TRANSLATOR agent
+   - When receiving results from TRANSLATOR agent → Route to GENERATOR agent
    - When receiving final response from GENERATOR agent → Present to user
 
 3. PROVIDE STATUS UPDATES:
@@ -212,6 +214,32 @@ ${versesList}
       content: generatedContent,
       isComplete: true,
       statusMessage: 'Answer complete',
+    };
+  }
+
+  /**
+   * Process translation results from Translator agent and route to Generator
+   */
+  async processTranslationResults(context: AgentContext): Promise<AgentResponse> {
+    const searchResults = context.searchResults || [];
+    
+    if (searchResults.length === 0) {
+      return {
+        content: `No verses were selected for translation. Please try rephrasing your question.`,
+        isComplete: true,
+        statusMessage: '❌ No verses selected',
+      };
+    }
+
+    // Count selected verses (non-filtered)
+    const selectedVerses = searchResults.filter(r => !r.isFiltered);
+
+    return {
+      content: `Selected ${selectedVerses.length} relevant verses with translations for comprehensive answer.`,
+      nextAgent: 'generator',
+      isComplete: false,
+      statusMessage: `Ready to generate answer with ${selectedVerses.length} translated verses`,
+      searchResults,
     };
   }
 

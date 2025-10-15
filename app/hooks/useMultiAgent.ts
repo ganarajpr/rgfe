@@ -5,6 +5,7 @@ import { LanguageModelV2 } from '@ai-sdk/provider';
 import { OrchestratorAgent } from '../lib/agents/orchestrator';
 import { SearcherAgent } from '../lib/agents/searcher';
 import { AnalyzerAgent } from '../lib/agents/analyzer';
+import { TranslatorAgent } from '../lib/agents/translator';
 import { GeneratorAgent } from '../lib/agents/generator';
 import { 
   AgentMessage, 
@@ -28,11 +29,13 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
   const orchestratorRef = useRef<OrchestratorAgent | null>(null);
   const searcherRef = useRef<SearcherAgent | null>(null);
   const analyzerRef = useRef<AnalyzerAgent | null>(null);
+  const translatorRef = useRef<TranslatorAgent | null>(null);
   const generatorRef = useRef<GeneratorAgent | null>(null);
 
   const searchIterationRef = useRef<number>(0);
   const currentSearchResultsRef = useRef<SearchResult[]>([]);
   const searchTermsHistoryRef = useRef<string[]>([]); // Track search terms to avoid repeats
+  const relevantVerseCountRef = useRef<number>(0); // Track relevant (non-filtered) verses
 
   /**
    * Remove any leading JSON or fenced ```json blocks from model output.
@@ -144,6 +147,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       orchestratorRef.current = new OrchestratorAgent(model);
       searcherRef.current = new SearcherAgent(model);
       analyzerRef.current = new AnalyzerAgent(model);
+      translatorRef.current = new TranslatorAgent(model);
       generatorRef.current = new GeneratorAgent(model);
       
       // Set up coordinator callback for searcher
@@ -166,7 +170,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
     // Check if agents are initialized
-    if (!orchestratorRef.current || !searcherRef.current || !analyzerRef.current || !generatorRef.current) {
+    if (!orchestratorRef.current || !searcherRef.current || !analyzerRef.current || !translatorRef.current || !generatorRef.current) {
       console.error('Agents not initialized');
       addMessage(
         'System is still initializing. Please wait a moment and try again.',
@@ -180,6 +184,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     searchIterationRef.current = 0;
     currentSearchResultsRef.current = [];
     searchTermsHistoryRef.current = []; // Reset search history for new query
+    relevantVerseCountRef.current = 0; // Reset relevant verse count
 
     try {
       // Add user message
@@ -281,15 +286,18 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         // Add search results display message for initial search
         if (searchResponse.searchResults && searchResponse.searchResults.length > 0) {
           const avgRelevance = searchResponse.searchResults.reduce((sum, r) => sum + r.relevance, 0) / searchResponse.searchResults.length;
+          const relevantCount = searchResponse.searchResults.filter(r => !r.isFiltered).length;
+          const filteredCount = searchResponse.searchResults.filter(r => r.isFiltered).length;
+          
           addMessage(
-            `Found ${searchResponse.searchResults.length} relevant verses from Sanskrit texts.`,
+            `Found ${searchResponse.searchResults.length} verses from Sanskrit texts (${relevantCount} relevant, ${filteredCount} filtered).`,
             'searcher',
             'search-results',
             { 
               searchResults: searchResponse.searchResults,
               searchTerm: userQuery,
               searchIteration: 0,
-              maxSearchIterations: 3,
+              maxSearchIterations: 5,
               avgRelevanceScore: avgRelevance
             }
           );
@@ -322,6 +330,9 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
   ) => {
     setCurrentAgent('analyzer');
     addStatusMessage('Analyzing search results...', 'analyzer');
+    
+    // Update relevant verse count
+    relevantVerseCountRef.current = searchResults.filter(r => !r.isFiltered).length;
 
     if (!analyzerRef.current) {
       throw new Error('Analyzer agent not initialized');
@@ -351,7 +362,14 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     console.log('Next Agent:', analyzerResponse.nextAgent || 'none');
     console.log('Search Query:', analyzerResponse.searchQuery || 'none');
     console.log('Status:', analyzerResponse.statusMessage);
+    console.log('Relevant Verses:', relevantVerseCountRef.current);
     console.log('═══════════════════════════════════════════════════════════\n');
+
+    // Update search results with verse evaluations from analyzer
+    if (analyzerResponse.searchResults) {
+      currentSearchResultsRef.current = analyzerResponse.searchResults;
+      relevantVerseCountRef.current = analyzerResponse.searchResults.filter(r => !r.isFiltered).length;
+    }
 
     // Check if analyzer needs more search
     if (analyzerResponse.requiresMoreSearch && analyzerResponse.nextAgent === 'searcher') {
@@ -421,15 +439,18 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       // Add search results display message for additional search
       if (additionalSearchResponse.searchResults && additionalSearchResponse.searchResults.length > 0) {
         const avgRelevance = additionalSearchResponse.searchResults.reduce((sum, r) => sum + r.relevance, 0) / additionalSearchResponse.searchResults.length;
+        const relevantCount = additionalSearchResponse.searchResults.filter(r => !r.isFiltered).length;
+        const filteredCount = additionalSearchResponse.searchResults.filter(r => r.isFiltered).length;
+        
         addMessage(
-          `Found ${additionalSearchResponse.searchResults.length} additional verses from Sanskrit texts.`,
+          `Found ${additionalSearchResponse.searchResults.length} additional verses from Sanskrit texts (${relevantCount} relevant, ${filteredCount} filtered).`,
           'searcher',
           'search-results',
           { 
             searchResults: additionalSearchResponse.searchResults,
             searchTerm: newSearchTerm,
             searchIteration: searchIterationRef.current,
-            maxSearchIterations: 3,
+            maxSearchIterations: 5,
             avgRelevanceScore: avgRelevance
           }
         );
@@ -440,9 +461,171 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       return;
     }
 
-    // Analysis complete, proceed to generator
+    // Analysis complete, proceed to translator
     if (analyzerResponse.isComplete) {
-      await processGeneratorFlow(userQuery, searchResults, signal);
+      await processTranslatorFlow(userQuery, searchResults, signal);
+    }
+  };
+
+  /**
+   * Process the translator flow (translate and select final verses)
+   */
+  const processTranslatorFlow = async (
+    userQuery: string,
+    searchResults: SearchResult[],
+    signal: AbortSignal
+  ) => {
+    setCurrentAgent('translator');
+    addStatusMessage('Translating and selecting final verses...', 'translator');
+
+    if (!translatorRef.current) {
+      throw new Error('Translator agent not initialized');
+    }
+
+    // Log translator request
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔄 TRANSLATOR REQUEST');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('Query:', userQuery);
+    console.log('Search Results:', searchResults.length);
+    console.log('───────────────────────────────────────────────────────────');
+
+    const translatorResponse = await translatorRef.current.translateAndEvaluate(
+      userQuery,
+      searchResults,
+      signal
+    );
+
+    // Log translator response
+    console.log('🔄 TRANSLATOR RESPONSE');
+    console.log('───────────────────────────────────────────────────────────');
+    console.log('Is Complete:', translatorResponse.isComplete);
+    console.log('Next Agent:', translatorResponse.nextAgent || 'none');
+    console.log('Status:', translatorResponse.statusMessage);
+    console.log('Selected Verses:', translatorResponse.searchResults?.filter(r => !r.isFiltered).length || 0);
+    console.log('═══════════════════════════════════════════════════════════\n');
+
+    // Update search results with translator selections
+    if (translatorResponse.searchResults) {
+      currentSearchResultsRef.current = translatorResponse.searchResults;
+    }
+
+    if (translatorResponse.statusMessage) {
+      addStatusMessage(translatorResponse.statusMessage, 'translator');
+    }
+
+    // Add translation results display message
+    if (translatorResponse.searchResults && translatorResponse.searchResults.length > 0) {
+      const selectedCount = translatorResponse.searchResults.filter(r => !r.isFiltered).length;
+      const filteredCount = translatorResponse.searchResults.filter(r => r.isFiltered).length;
+      
+      addMessage(
+        `Selected ${selectedCount} verses with translations for final answer (${filteredCount} filtered out).`,
+        'translator',
+        'search-results',
+        { 
+          searchResults: translatorResponse.searchResults,
+          searchTerm: 'Translation and Selection',
+          searchIteration: 0,
+          maxSearchIterations: 1,
+          avgRelevanceScore: 1.0
+        }
+      );
+    }
+
+    // Check if translator needs more search
+    if (translatorResponse.requiresMoreSearch && translatorResponse.nextAgent === 'searcher') {
+      searchIterationRef.current++;
+      
+      // Add status message
+      if (translatorResponse.statusMessage) {
+        addStatusMessage(translatorResponse.statusMessage, 'translator');
+      }
+
+      // Perform additional search
+      setCurrentAgent('searcher');
+      if (!searcherRef.current) {
+        throw new Error('Searcher agent not initialized');
+      }
+
+      // Log additional search request from translator
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`🔍 TRANSLATOR REQUESTED ADDITIONAL SEARCH (Iteration ${searchIterationRef.current})`);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('Original Query:', userQuery);
+      console.log('Search Request:', translatorResponse.searchQuery || '');
+      console.log('Previous Results Count:', currentSearchResultsRef.current.length);
+      console.log(`Iteration: ${searchIterationRef.current} of 5`);
+      console.log('───────────────────────────────────────────────────────────');
+
+      // Add status message with iteration info
+      addMessage(
+        `Searching for more verses (${searchIterationRef.current}/5)...`,
+        'searcher',
+        'search-status',
+        { 
+          searchIteration: searchIterationRef.current,
+          maxSearchIterations: 5,
+          searchQuery: translatorResponse.searchQuery 
+        }
+      );
+
+      const newSearchTerm = translatorResponse.searchQuery || '';
+      
+      // Track this search term
+      if (newSearchTerm && !searchTermsHistoryRef.current.includes(newSearchTerm)) {
+        searchTermsHistoryRef.current.push(newSearchTerm);
+        console.log(`📋 Search terms history: [${searchTermsHistoryRef.current.join(', ')}]`);
+      }
+      
+      const additionalSearchResponse = await searcherRef.current.searchWithContext(
+        newSearchTerm,
+        currentSearchResultsRef.current,
+        searchTermsHistoryRef.current
+      );
+
+      currentSearchResultsRef.current = additionalSearchResponse.searchResults || [];
+      
+      // Log additional search response
+      console.log('🔍 ADDITIONAL SEARCH RESPONSE');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('Search Request:', translatorResponse.searchQuery || '');
+      console.log('Total Results Now:', currentSearchResultsRef.current.length);
+      console.log('Status:', additionalSearchResponse.statusMessage);
+      console.log('═══════════════════════════════════════════════════════════\n');
+      
+      if (additionalSearchResponse.statusMessage) {
+        addStatusMessage(additionalSearchResponse.statusMessage, 'searcher');
+      }
+
+      // Add search results display message for additional search
+      if (additionalSearchResponse.searchResults && additionalSearchResponse.searchResults.length > 0) {
+        const avgRelevance = additionalSearchResponse.searchResults.reduce((sum, r) => sum + r.relevance, 0) / additionalSearchResponse.searchResults.length;
+        const relevantCount = additionalSearchResponse.searchResults.filter(r => !r.isFiltered).length;
+        const filteredCount = additionalSearchResponse.searchResults.filter(r => r.isFiltered).length;
+        
+        addMessage(
+          `Found ${additionalSearchResponse.searchResults.length} additional verses from Sanskrit texts (${relevantCount} relevant, ${filteredCount} filtered).`,
+          'searcher',
+          'search-results',
+          { 
+            searchResults: additionalSearchResponse.searchResults,
+            searchTerm: newSearchTerm,
+            searchIteration: searchIterationRef.current,
+            maxSearchIterations: 5,
+            avgRelevanceScore: avgRelevance
+          }
+        );
+      }
+
+      // Loop back to translator with new results
+      await processTranslatorFlow(userQuery, currentSearchResultsRef.current, signal);
+      return;
+    }
+
+    // Proceed to generator with translated and selected verses
+    if (translatorResponse.isComplete) {
+      await processGeneratorFlow(userQuery, currentSearchResultsRef.current, signal);
     }
   };
 
@@ -548,6 +731,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     searchIterationRef.current = 0;
     currentSearchResultsRef.current = [];
     searchTermsHistoryRef.current = []; // Clear search history
+    relevantVerseCountRef.current = 0; // Reset relevant verse count
   }, []);
 
   return {

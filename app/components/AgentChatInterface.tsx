@@ -81,6 +81,7 @@ const AgentChatInterface = ({
       orchestrator: { label: 'Analyzing' },
       searcher: { label: 'Searching' },
       analyzer: { label: 'Analyzing Results' },
+      translator: { label: 'Translating' },
       generator: { label: 'Generating' },
     };
 
@@ -95,25 +96,32 @@ const AgentChatInterface = ({
     <div className="flex flex-col h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="font-semibold text-gray-700">RigVeda Assistant</h1>
-            <div className="flex items-center gap-2">
-              {modelName && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">{modelName}</span>
-                  {onClearCache && (
-                    <button
-                      onClick={onClearCache}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                      title="Clear model cache"
-                    >
-                      🗑️
-                    </button>
-                  )}
-                </div>
-              )}
-              {getAgentStatusText()}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <img 
+              src="/ai_icon.png" 
+              alt="RigVeda Assistant" 
+              className="w-12 h-12 object-contain"
+            />
+            <div>
+              <h1 className="font-semibold text-gray-700">RigVeda Assistant</h1>
+              <div className="flex items-center gap-2">
+                {modelName && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">{modelName}</span>
+                    {onClearCache && (
+                      <button
+                        onClick={onClearCache}
+                        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                        title="Clear model cache"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
+                )}
+                {getAgentStatusText()}
+              </div>
             </div>
           </div>
         </div>
@@ -135,15 +143,25 @@ const AgentChatInterface = ({
               title="Download conversation as PDF"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8h18M3 12h18M3 16h18" />
+                <circle cx="12" cy="8" r="1" fill="currentColor" />
+                <circle cx="12" cy="12" r="1" fill="currentColor" />
+                <circle cx="12" cy="16" r="1" fill="currentColor" />
               </svg>
               PDF
             </button>
           )}
           <button
             onClick={onNewChat}
-            className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6l4 2" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 8l8 8M16 8l-8 8" />
+            </svg>
             New Chat
           </button>
         </div>

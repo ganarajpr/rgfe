@@ -13,12 +13,6 @@
 }
 
 /* Force light theme - remove dark mode preference */
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-} */
 
 * {
   scroll-behavior: smooth;
@@ -91,4 +85,34 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-400;
+}
+
+/* Sanskrit/Devanagari text styling */
+.sanskrit-text {
+  font-family: var(--font-noto-devanagari), 'Noto Sans Devanagari', sans-serif;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.sanskrit-verse {
+  font-family: var(--font-noto-devanagari), 'Noto Sans Devanagari', sans-serif;
+  font-weight: 500;
+  line-height: 1.6;
+  @apply bg-amber-50 border-l-4 border-amber-400 pl-4 py-3 my-4 rounded-r-lg;
+  @apply text-amber-900 text-lg font-semibold;
+  @apply shadow-sm;
+}
+
+.sanskrit-translation {
+  @apply text-gray-700 italic text-base mt-2 ml-2;
+  @apply border-l-2 border-gray-300 pl-3;
+}
+
+/* Verse reference highlighting */
+.verse-reference {
+  font-weight: 600;
+  color: #2563eb;
+  background: #dbeafe;
+  padding: 2px 6px;
+  border-radius: 4px;
 }

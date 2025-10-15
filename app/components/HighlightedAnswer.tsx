@@ -22,12 +22,57 @@ export function HighlightedAnswer({ content, highlightSections }: HighlightedAns
   useEffect(() => {
     const renderMarkdown = async () => {
       try {
-        const html = await marked.parse(content, { 
+        // First, process special Sanskrit and translation tags
+        let processedContent = content;
+        
+        // Replace <sanskrit> tags with special markers for later processing
+        processedContent = processedContent.replace(
+          /<sanskrit>(.*?)<\/sanskrit>/gs,
+          (match, sanskritText) => {
+            return `SANSKRIT_START_PLACEHOLDER${sanskritText.trim()}SANSKRIT_END_PLACEHOLDER`;
+          }
+        );
+        
+        // Replace <translation> tags with special markers
+        processedContent = processedContent.replace(
+          /<translation>(.*?)<\/translation>/gs,
+          (match, translationText) => {
+            return `TRANSLATION_START_PLACEHOLDER${translationText.trim()}TRANSLATION_END_PLACEHOLDER`;
+          }
+        );
+        
+        const html = await marked.parse(processedContent, { 
           async: true,
           breaks: true,
           gfm: true,
         });
-        setHtmlContent(html);
+        
+        // Now process the special markers in the HTML
+        let finalHtml = html;
+        
+        // Replace Sanskrit markers with styled divs
+        finalHtml = finalHtml.replace(
+          /SANSKRIT_START_PLACEHOLDER(.*?)SANSKRIT_END_PLACEHOLDER/gs,
+          (match, sanskritText) => {
+            return `<div class="sanskrit-verse">${sanskritText}</div>`;
+          }
+        );
+        
+        // Replace translation markers with styled divs
+        finalHtml = finalHtml.replace(
+          /TRANSLATION_START_PLACEHOLDER(.*?)TRANSLATION_END_PLACEHOLDER/gs,
+          (match, translationText) => {
+            return `<div class="sanskrit-translation">${translationText}</div>`;
+          }
+        );
+        
+        // Enhance verse references (RV 5.1.8, RigVeda 5.1.8, etc.)
+        finalHtml = finalHtml.replace(
+          /\*\*(RV|RigVeda)\s+(\d+\.\d+\.\d+)\*\*/g,
+          '<span class="verse-reference">$1 $2</span>'
+        );
+        
+        setHtmlContent(finalHtml);
       } catch (error) {
         console.error('Error rendering markdown:', error);
         setHtmlContent(content);

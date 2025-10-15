@@ -33,12 +33,14 @@ export function CitationVerse({ verse, importance = 'medium' }: CitationVersePro
     low: 'border-gray-100 bg-gray-50',
   };
 
-  const relevancePercentage = (verse.relevance * 100).toFixed(0);
   const verseRef = verse.bookContext || verse.title;
+  const actualImportance = verse.importance || importance;
 
   return (
     <div 
-      className={`border ${importanceStyles[importance]} rounded-lg overflow-hidden transition-all`}
+      className={`border ${importanceStyles[actualImportance]} rounded-lg overflow-hidden transition-all ${
+        verse.isFiltered ? 'opacity-60' : ''
+      }`}
     >
       {/* Collapsed Header - Always Visible */}
       <button
@@ -47,14 +49,16 @@ export function CitationVerse({ verse, importance = 'medium' }: CitationVersePro
       >
         <div className="flex items-center gap-3 flex-1">
           <div className={`w-2 h-2 rounded-full ${
-            getImportanceDotColor(importance)
+            getImportanceDotColor(actualImportance)
           }`} />
           <span className="text-sm font-medium text-gray-700">
             {verseRef}
           </span>
-          <span className="text-xs text-gray-500">
-            {relevancePercentage}% relevance
-          </span>
+          {verse.isFiltered && (
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
+              Filtered
+            </span>
+          )}
         </div>
         <svg
           className={`w-4 h-4 text-gray-500 transition-transform ${
@@ -84,28 +88,24 @@ export function CitationVerse({ verse, importance = 'medium' }: CitationVersePro
               </div>
             )}
 
-            {/* Verse Content */}
+            {/* Sanskrit Content */}
             {verse.content && (
               <div className="prose prose-sm max-w-none">
-                <div className="text-gray-700 whitespace-pre-wrap">
+                <div className="text-gray-700 whitespace-pre-wrap sanskrit-text">
                   {verse.content}
                 </div>
               </div>
             )}
 
-            {/* Relevance Bar */}
-            <div className="pt-2">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span>Relevance:</span>
-                <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${getRelevanceBarColor(verse.relevance)}`}
-                    style={{ width: `${verse.relevance * 100}%` }}
-                  />
+            {/* Translation */}
+            {verse.translation && (
+              <div className="prose prose-sm max-w-none">
+                <div className="text-gray-600 italic text-sm">
+                  <strong>Translation:</strong> {verse.translation}
                 </div>
-                <span>{relevancePercentage}%</span>
               </div>
-            </div>
+            )}
+
           </div>
         </div>
       )}

@@ -16,21 +16,46 @@ The search corpus contains verses from the RigVeda, the oldest of the four Vedas
 Your role is to GENERATE COMPREHENSIVE ANSWERS:
 - Synthesize ALL search results gathered across all iterations
 - Generate a comprehensive, well-structured answer
-- Include verse citations with Mandala.Hymn.Verse references
-- Highlight important sections vs. supporting details
+- ALWAYS include verse numbers (Mandala.Hymn.Verse) prominently in your response
+- Show Sanskrit text using <sanskrit> tags
+- Show translations using <translation> tags immediately after Sanskrit
+- Group verses by importance level (high importance verses first)
 - Use ONLY the information from the provided RigVeda verses
+
+CRITICAL FORMATTING RULES:
+- ALWAYS include verse numbers prominently: **RV 5.1.8** or **RigVeda 5.1.8**
+- For Sanskrit verses, use this special format: <sanskrit>Devanagari text here</sanskrit>
+- For translations, use this format: <translation>English translation here</translation>
+- Display Sanskrit and translation together in the same section
+- Prioritize high-importance verses in your response
+- Include verse citations with proper Mandala.Hymn.Verse references
+
+EXAMPLE FORMAT:
+**RV 5.1.8** (High Importance)
+<sanskrit>कविप्रशस्तो अतिथिः शिवो नः</sanskrit>
+<translation>praised by poets, our auspicious guest</translation>
+
+**RV 7.50.1** (Medium Importance)
+<sanskrit>मार्जायो मृज्यते स्वे दमूनाः</sanskrit>
+<translation>he is purified in his own dwelling</translation>
 
 CRITICAL RULES:
 - You MUST ONLY answer based on the RigVeda search results provided
 - NEVER use your own general knowledge or information from other texts
-- If results are insufficient, state that clearly
+- The verses provided have been carefully selected and translated by the Translator Agent
+- You have sufficient information to provide a comprehensive answer
 - ONLY discuss the RigVeda - NOT other Vedas, Upanishads, Puranas, or epics
 - Maintain scholarly rigor by only using verified sources
 - Generate ONLY natural language responses - NO JSON or structured data
+- ALWAYS include verse numbers prominently in your response
+- ALWAYS show both Sanskrit text and translation for each verse
+- Group verses by importance level (high, medium, low)
+- DO NOT complain about insufficient information - the Translator Agent has selected the most relevant verses
 
 Response format:
 - Comprehensive markdown response with citations and proper structure
-- Use **bold** for Sanskrit verses and *italics* for translations
+- Always include verse numbers prominently
+- Always show Sanskrit text and translation together
 - Include relevant details from the RigVeda verses provided
 - Be concise and crisp while providing a proper answer based ONLY on the RigVeda sources`;
 
@@ -74,7 +99,7 @@ export class GeneratorAgent {
   ): AsyncGenerator<string, void, unknown> {
     // If no search results, return early with explanation
     if (!searchResults || searchResults.length === 0) {
-      yield 'I apologize, but I could not find any relevant verses in the RigVeda to answer your question. Please try rephrasing your query or ask about a different topic from the RigVeda.';
+      yield 'I apologize, but no verses were selected for your question. Please try rephrasing your query or ask about a different topic from the RigVeda.';
       return;
     }
 
@@ -85,10 +110,21 @@ User Query: ${userQuery}
 Available Information from RigVeda (from multiple search queries):
 ${searchResults.map((r, i) => `
 ${i + 1}. ${r.title} (Source: ${r.source})
-   ${r.content}
+   Importance: ${r.importance || 'not assigned'}
+   Filtered: ${r.isFiltered ? 'Yes' : 'No'}
+   Sanskrit: ${r.content}
+   Translation: ${r.translation || 'Not provided'}
 `).join('\n')}
 
 CRITICAL: Generate a comprehensive answer STRICTLY based on the information provided above. DO NOT use your general knowledge.
+
+FORMATTING REQUIREMENTS:
+- ALWAYS include verse numbers prominently: **RV 5.1.8** or **RigVeda 5.1.8**
+- ALWAYS show Sanskrit text using <sanskrit>Devanagari text here</sanskrit>
+- ALWAYS show translation using <translation>English translation here</translation>
+- Display Sanskrit and translation together in the same section
+- Prioritize high-importance verses first, then medium, then low
+- Skip filtered verses (marked as filtered: Yes)
 
 If the search results do not contain sufficient information to answer the question:
 - State clearly that the available texts do not contain enough information
@@ -101,10 +137,11 @@ If the search results contain sufficient information:
 3. Cite specific mandalas, suktas, and verse numbers when making claims
 4. Be well-structured and easy to read
 5. Include relevant details from the RigVeda verses provided
-6. Highlight verses and translations appropriately using markdown formatting
-7. Use **bold** for Sanskrit verses and *italics* for translations
-8. Be concise and crisp while providing a proper answer based ONLY on the RigVeda sources
-9. Do NOT reference or mention other Sanskrit texts (Upanishads, Puranas, epics, etc.)`;
+6. ALWAYS include verse numbers prominently in your response
+7. ALWAYS show both Sanskrit text and translation for each verse
+8. Group verses by importance level (high, medium, low)
+9. Be concise and crisp while providing a proper answer based ONLY on the RigVeda sources
+10. Do NOT reference or mention other Sanskrit texts (Upanishads, Puranas, epics, etc.)`;
 
     try {
       const result = streamText({
