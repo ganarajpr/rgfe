@@ -116,3 +116,79 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
 }
+
+/* Enhanced card system */
+.verse-card {
+  @apply border rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md;
+}
+
+.verse-card-high {
+  @apply bg-blue-50 border-blue-200 border-l-4 border-l-blue-500;
+}
+
+.verse-card-medium {
+  @apply bg-gray-50 border-gray-200 border-l-4 border-l-gray-400;
+}
+
+.verse-card-low {
+  @apply bg-gray-50 border-gray-100 border-l-4 border-l-gray-300;
+}
+
+/* Message type indicators */
+.message-indicator {
+  @apply w-2 h-2 rounded-full;
+}
+
+.message-indicator-system {
+  @apply bg-gray-400 animate-pulse;
+}
+
+.message-indicator-search {
+  @apply bg-blue-500 animate-pulse;
+}
+
+.message-indicator-results {
+  @apply bg-green-500;
+}
+
+.message-indicator-user {
+  @apply bg-gray-500;
+}
+
+.message-indicator-assistant {
+  @apply bg-blue-500;
+}
+
+/* Enhanced typography */
+.message-header {
+  @apply flex items-center gap-3;
+}
+
+.message-timestamp {
+  @apply text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full;
+}
+
+/* Improved spacing and animations */
+.message-container {
+  @apply space-y-3;
+}
+
+.search-query-badge {
+  @apply text-xs font-mono bg-white px-3 py-1 rounded-full border;
+}
+
+.importance-badge {
+  @apply text-xs px-2 py-1 rounded-full font-medium;
+}
+
+.importance-badge-high {
+  @apply bg-blue-200 text-blue-800;
+}
+
+.importance-badge-medium {
+  @apply bg-gray-200 text-gray-700;
+}
+
+.importance-badge-low {
+  @apply bg-gray-100 text-gray-600;
+}

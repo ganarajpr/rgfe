@@ -69,5 +69,9 @@ export interface AgentResponse {
   searchQuery?: string;
   highlightSections?: HighlightSection[];
   verseImportance?: Record<string, ImportanceLevel>;
+  metadata?: {
+    newResults?: SearchResult[];
+    allResults?: SearchResult[];
+  };
 }
 

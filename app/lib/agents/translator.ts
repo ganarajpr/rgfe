@@ -16,8 +16,8 @@ The RigVeda contains:
 Your role is to:
 1. TRANSLATE each Sanskrit verse to clear, accurate English
 2. EVALUATE each verse's relevance to the user's specific question
-3. SELECT exactly 10 verses for the final answer (or all available if fewer than 10)
-4. If fewer than 10 relevant verses are available, request additional searches
+3. SELECT exactly 5 verses for the final answer (or all available if fewer than 5)
+4. If fewer than 5 relevant verses are available, request additional searches
 5. ENSURE the generator receives properly translated and relevant verses
 
 TRANSLATION REQUIREMENTS:
@@ -37,26 +37,26 @@ SELECTION STRATEGY:
 - Prioritize verses that directly answer the user's question
 - Include supporting verses that provide important context
 - Ensure a comprehensive coverage of the topic
-- Select EXACTLY 10 verses that together provide a complete answer
-- If fewer than 10 relevant verses exist, request additional searches to find more
-- If more than 10 relevant verses exist, select the 10 most important ones
+- Select EXACTLY 5 verses that together provide a complete answer
+- If fewer than 5 relevant verses exist, request additional searches to find more
+- If more than 5 relevant verses exist, select the 5 most important ones
 - Avoid redundant or overly similar verses
-- NEVER proceed with fewer than 10 verses unless all available verses have been exhausted
+- NEVER proceed with fewer than 5 verses unless all available verses have been exhausted
 
 CRITICAL RULES:
 - You MUST provide accurate translations for ALL verses you select
 - You MUST evaluate each verse's relevance to the specific user question
-- You MUST select exactly 10 verses to provide a comprehensive answer
+- You MUST select exactly 5 verses to provide a comprehensive answer
 - You MUST ensure the generator will have sufficient information
 - NEVER select verses without providing translations
 - NEVER select irrelevant verses just to fill a quota
-- If fewer than 10 relevant verses are available, request additional searches
-- NEVER proceed to generator with fewer than 10 verses unless all search options are exhausted
+- If fewer than 5 relevant verses are available, request additional searches
+- NEVER proceed to generator with fewer than 5 verses unless all search options are exhausted
 
 Response format:
 - ALWAYS output ONLY a JSON object with: { "selectedVerses": [{"id": "verse_id", "translation": "English translation", "relevance": "high|medium|low", "reasoning": "why this verse is relevant"}], "totalSelected": number, "needsMoreSearch": boolean, "searchRequest": "sanskrit search term if more search needed", "reasoning": "overall selection strategy" }
-- If fewer than 10 verses selected, set "needsMoreSearch": true and provide "searchRequest"
-- If 10 or more verses selected, set "needsMoreSearch": false and "searchRequest": ""
+- If fewer than 5 verses selected, set "needsMoreSearch": true and provide "searchRequest"
+- If 5 or more verses selected, set "needsMoreSearch": false and "searchRequest": ""
 - Ensure all selected verses have complete translations
 - Provide clear reasoning for each verse selection
 - Ensure the selected verses together provide comprehensive coverage of the user's question`;
@@ -103,11 +103,11 @@ ${i + 1}. ID: ${r.id}
 TASK:
 1. Translate each Sanskrit verse to clear, accurate English
 2. Evaluate each verse's relevance to the user's question: "${userQuery}"
-3. Select EXACTLY 10 verses that together provide a comprehensive answer
+3. Select EXACTLY 5 verses that together provide a comprehensive answer
 4. Ensure all selected verses have complete translations
-5. If fewer than 10 relevant verses exist, request additional searches to find more
-6. If more than 10 relevant verses exist, select the 10 most important ones
-7. NEVER proceed with fewer than 10 verses unless all search options are exhausted
+5. If fewer than 5 relevant verses exist, request additional searches to find more
+6. If more than 5 relevant verses exist, select the 5 most important ones
+7. NEVER proceed with fewer than 5 verses unless all search options are exhausted
 
 IMPORTANT:
 - Focus on verses that directly relate to the user's question
@@ -128,7 +128,7 @@ Output ONLY a JSON object:
   ],
   "totalSelected": number,
   "needsMoreSearch": boolean,
-  "searchRequest": "Sanskrit search term if more search needed, empty string if 10+ verses selected",
+  "searchRequest": "Sanskrit search term if more search needed, empty string if 5+ verses selected",
   "reasoning": "Overall strategy for verse selection and how they together answer the user's question"
 }`;
 
@@ -165,12 +165,12 @@ Output ONLY a JSON object:
         console.log(`📝 Translator selected ${selectedCount} verses for final answer`);
         
         // Check if we need more search
-        if (translationResult.needsMoreSearch && translationResult.searchRequest && selectedCount < 10) {
+        if (translationResult.needsMoreSearch && translationResult.searchRequest && selectedCount < 5) {
           console.log(`🔄 Translator requesting more search: "${translationResult.searchRequest}"`);
           console.log(`   Reasoning: ${translationResult.reasoning}`);
           
           return {
-            content: `Found ${selectedCount} relevant verses, need more to reach 10. Requesting additional search.`,
+            content: `Found ${selectedCount} relevant verses, need more to reach 5. Requesting additional search.`,
             nextAgent: 'searcher',
             isComplete: false,
             requiresMoreSearch: true,

@@ -171,30 +171,39 @@ const AgentChatInterface = ({
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full px-4">
-            <div className="max-w-2xl text-center space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-600 mb-2">
+            <div className="max-w-3xl text-center space-y-8">
+              <div className="space-y-4">
+                <h2 className="text-3xl font-bold text-gray-700">
                   RigVeda Assistant
                 </h2>
-                <p className="text-gray-500">
-                  Ask about the RigVeda - hymns, verses, deities, rituals, and teachings
+                <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                  Ask about the RigVeda - hymns, verses, deities, rituals, and teachings. 
+                  Get structured answers with beautiful verse displays.
                 </p>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
                 {[
-                  { text: 'Explore hymns', action: 'Tell me about hymns to Agni in the RigVeda' },
-                  { text: 'Learn about deities', action: 'Who is Indra in the RigVeda?' },
-                  { text: 'Understand rituals', action: 'What is the significance of Soma in Vedic rituals?' },
-                  { text: 'Discover philosophy', action: 'What is the Nasadiya Sukta about?' },
+                  { text: 'Explore hymns', action: 'Tell me about hymns to Agni in the RigVeda', icon: '🔥' },
+                  { text: 'Learn about deities', action: 'Who is Indra in the RigVeda?', icon: '⚡' },
+                  { text: 'Understand rituals', action: 'What is the significance of Soma in Vedic rituals?', icon: '🍃' },
+                  { text: 'Discover philosophy', action: 'What is the Nasadiya Sukta about?', icon: '🌟' },
                 ].map((suggestion) => (
                   <button
                     key={suggestion.action}
                     onClick={() => setInput(suggestion.action)}
-                    className="p-4 text-left border border-gray-200 hover:border-gray-300 transition-colors"
+                    className="p-6 text-left border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 rounded-lg bg-white"
                   >
-                    <div className="text-sm text-gray-600">
-                      {suggestion.text}
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{suggestion.icon}</span>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">
+                          {suggestion.text}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Click to explore
+                        </div>
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -202,7 +211,7 @@ const AgentChatInterface = ({
             </div>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             {messages.map((message) => (
               <AgentChatMessage
                 key={message.id}
@@ -216,9 +225,9 @@ const AgentChatInterface = ({
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 bg-white px-4 py-4">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-          <div className="relative flex items-end gap-2">
+      <div className="border-t border-gray-200 bg-white px-4 py-6">
+        <form onSubmit={handleSubmit} className="max-w-5xl mx-auto">
+          <div className="relative flex items-end gap-3">
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
@@ -228,13 +237,13 @@ const AgentChatInterface = ({
                 placeholder="Ask about the RigVeda..."
                 disabled={isProcessing}
                 rows={1}
-                className="w-full px-4 py-3 pr-12 rounded-2xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                className="w-full px-5 py-4 pr-12 rounded-2xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-none shadow-sm"
               />
             </div>
             <button
               type="submit"
               disabled={!input.trim() || isProcessing}
-              className="p-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white transition-colors flex-shrink-0"
+              className="p-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white transition-colors flex-shrink-0 shadow-sm"
               title="Send message"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,7 +251,7 @@ const AgentChatInterface = ({
               </svg>
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
+          <p className="text-xs text-gray-500 mt-3 text-center">
             Press Enter to send, Shift + Enter for new line
           </p>
         </form>

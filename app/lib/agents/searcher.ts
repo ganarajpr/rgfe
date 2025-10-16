@@ -137,7 +137,7 @@ Sanskrit keywords:`;
       
       const searchTool = getSearchTool({
         binaryFilePath: '/smrithi-rgveda-embgemma-512d.bin',
-        defaultLimit: 10,
+        defaultLimit: 5,
         minScore: 0.0, // Use 0.0 like cli-search.js for cosine similarity
         useEmbeddings: true, // Enable semantic vector search with EmbeddingGemma
       });
@@ -314,7 +314,7 @@ Sanskrit search phrase:`;
 
       let searchResults: SearchResult[] = [];
       try {
-        searchResults = await searchTool.search(searchTerm, 10);
+        searchResults = await searchTool.search(searchTerm, 5);
         console.log(`   ✅ Found ${searchResults.length} results`);
       } catch (error) {
         console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
@@ -421,7 +421,7 @@ Sanskrit search phrase:`;
 
       let newSearchResults: SearchResult[] = [];
       try {
-        const searchResult = await searchTool.searchWithEmbedding(searchTerm, 8);
+        const searchResult = await searchTool.searchWithEmbedding(searchTerm, 5);
         newSearchResults = searchResult.results;
         console.log(`   ✅ Found ${newSearchResults.length} results`);
         
@@ -461,6 +461,11 @@ Sanskrit search phrase:`;
         isComplete: false,
         searchResults: allResults,
         statusMessage: `Found ${uniqueNewResults.length} new verses (${allResults.length} total)`,
+        // Add metadata to track new vs all results for UI display
+        metadata: {
+          newResults: uniqueNewResults,
+          allResults: allResults
+        }
       };
     } catch (error) {
       console.error('❌ Searcher additional search error:', error);

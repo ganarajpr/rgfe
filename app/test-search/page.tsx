@@ -199,7 +199,7 @@ export default function TestSearchPage() {
           value: queryEmbedding,
           property: 'embedding',
         },
-        limit: 10,
+        limit: 5,
         includeVectors: false,
       });
       const searchEnd = performance.now();

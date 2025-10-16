@@ -437,17 +437,19 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       }
 
       // Add search results display message for additional search
-      if (additionalSearchResponse.searchResults && additionalSearchResponse.searchResults.length > 0) {
-        const avgRelevance = additionalSearchResponse.searchResults.reduce((sum, r) => sum + r.relevance, 0) / additionalSearchResponse.searchResults.length;
-        const relevantCount = additionalSearchResponse.searchResults.filter(r => !r.isFiltered).length;
-        const filteredCount = additionalSearchResponse.searchResults.filter(r => r.isFiltered).length;
+      // Use only the new results for UI display, not the accumulated results
+      const newResultsForDisplay = additionalSearchResponse.metadata?.newResults || [];
+      if (newResultsForDisplay.length > 0) {
+        const avgRelevance = newResultsForDisplay.reduce((sum, r) => sum + r.relevance, 0) / newResultsForDisplay.length;
+        const relevantCount = newResultsForDisplay.filter(r => !r.isFiltered).length;
+        const filteredCount = newResultsForDisplay.filter(r => r.isFiltered).length;
         
         addMessage(
-          `Found ${additionalSearchResponse.searchResults.length} additional verses from Sanskrit texts (${relevantCount} relevant, ${filteredCount} filtered).`,
+          `Found ${newResultsForDisplay.length} additional verses from Sanskrit texts (${relevantCount} relevant, ${filteredCount} filtered).`,
           'searcher',
           'search-results',
           { 
-            searchResults: additionalSearchResponse.searchResults,
+            searchResults: newResultsForDisplay, // Display only new results
             searchTerm: newSearchTerm,
             searchIteration: searchIterationRef.current,
             maxSearchIterations: 5,
@@ -482,6 +484,19 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       throw new Error('Translator agent not initialized');
     }
 
+    // Filter out already-processed verses (those with translations)
+    // Only send new verses that haven't been translated yet
+    const newVersesToTranslate = searchResults.filter(r => !r.translation);
+    
+    // If there are no new verses to translate, skip translation
+    if (newVersesToTranslate.length === 0) {
+      console.log('⏭️ No new verses to translate, proceeding to generator');
+      await processGeneratorFlow(userQuery, currentSearchResultsRef.current, signal);
+      return;
+    }
+
+    console.log(`🔄 Translator: Processing ${newVersesToTranslate.length} new verses (${searchResults.length - newVersesToTranslate.length} already processed)`);
+
     // Log translator request
     console.log('═══════════════════════════════════════════════════════════');
     console.log('🔄 TRANSLATOR REQUEST');
@@ -492,7 +507,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
     const translatorResponse = await translatorRef.current.translateAndEvaluate(
       userQuery,
-      searchResults,
+      newVersesToTranslate,
       signal
     );
 
@@ -505,9 +520,20 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     console.log('Selected Verses:', translatorResponse.searchResults?.filter(r => !r.isFiltered).length || 0);
     console.log('═══════════════════════════════════════════════════════════\n');
 
-    // Update search results with translator selections
+    // Merge translator results back into the complete collection
     if (translatorResponse.searchResults) {
-      currentSearchResultsRef.current = translatorResponse.searchResults;
+      // Create a map of updated verses from translator
+      const updatedVersesMap = new Map(
+        translatorResponse.searchResults.map(r => [r.id, r])
+      );
+      
+      // Update the complete collection with translator results
+      currentSearchResultsRef.current = currentSearchResultsRef.current.map(verse => {
+        const updatedVerse = updatedVersesMap.get(verse.id);
+        return updatedVerse || verse; // Use updated verse if available, otherwise keep original
+      });
+      
+      console.log(`🔄 Translator: Updated ${translatorResponse.searchResults.length} verses in complete collection`);
     }
 
     if (translatorResponse.statusMessage) {
@@ -599,17 +625,19 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       }
 
       // Add search results display message for additional search
-      if (additionalSearchResponse.searchResults && additionalSearchResponse.searchResults.length > 0) {
-        const avgRelevance = additionalSearchResponse.searchResults.reduce((sum, r) => sum + r.relevance, 0) / additionalSearchResponse.searchResults.length;
-        const relevantCount = additionalSearchResponse.searchResults.filter(r => !r.isFiltered).length;
-        const filteredCount = additionalSearchResponse.searchResults.filter(r => r.isFiltered).length;
+      // Use only the new results for UI display, not the accumulated results
+      const newResultsForDisplay = additionalSearchResponse.metadata?.newResults || [];
+      if (newResultsForDisplay.length > 0) {
+        const avgRelevance = newResultsForDisplay.reduce((sum, r) => sum + r.relevance, 0) / newResultsForDisplay.length;
+        const relevantCount = newResultsForDisplay.filter(r => !r.isFiltered).length;
+        const filteredCount = newResultsForDisplay.filter(r => r.isFiltered).length;
         
         addMessage(
-          `Found ${additionalSearchResponse.searchResults.length} additional verses from Sanskrit texts (${relevantCount} relevant, ${filteredCount} filtered).`,
+          `Found ${newResultsForDisplay.length} additional verses from Sanskrit texts (${relevantCount} relevant, ${filteredCount} filtered).`,
           'searcher',
           'search-results',
           { 
-            searchResults: additionalSearchResponse.searchResults,
+            searchResults: newResultsForDisplay, // Display only new results
             searchTerm: newSearchTerm,
             searchIteration: searchIterationRef.current,
             maxSearchIterations: 5,
@@ -618,8 +646,9 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         );
       }
 
-      // Loop back to translator with new results
-      await processTranslatorFlow(userQuery, currentSearchResultsRef.current, signal);
+      // Loop back to translator with ONLY new untranslated results
+      const newVersesOnly = currentSearchResultsRef.current.filter(r => !r.translation);
+      await processTranslatorFlow(userQuery, newVersesOnly, signal);
       return;
     }
 

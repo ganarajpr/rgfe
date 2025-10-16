@@ -95,13 +95,13 @@ class SearchEngine {
   /**
    * Perform vector search with a query embedding
    * @param queryEmbedding - The embedding vector for the search query
-   * @param limit - Maximum number of results to return (default: 10)
+   * @param limit - Maximum number of results to return (default: 5)
    * @param threshold - Minimum similarity threshold (default: 0.0)
    * @returns Array of search results
    */
   async vectorSearch(
     queryEmbedding: number[],
-    limit: number = 10,
+    limit: number = 5,
     threshold: number = 0.0
   ): Promise<SearchResultItem[]> {
     if (!this.isInitialized || !this.db) {
@@ -173,7 +173,7 @@ class SearchEngine {
   /**
    * Perform text search (without embeddings)
    * @param queryText - The text query
-   * @param limit - Maximum number of results to return (default: 10)
+   * @param limit - Maximum number of results to return (default: 5)
    * @returns Array of search results
    */
   async textSearch(

@@ -26,7 +26,7 @@ export class SearchTool {
 
   constructor(config: SearchToolConfig) {
     this.config = {
-      defaultLimit: 10,
+      defaultLimit: 5,
       minScore: 0.0, // Use 0.0 for cosine similarity (matches cli-search.js behavior)
       useEmbeddings: true, // Default to using embeddings
       ...config,
@@ -100,7 +100,7 @@ export class SearchTool {
 
     try {
       const searchEngine = getSearchEngine();
-      const searchLimit = limit || this.config.defaultLimit || 10;
+      const searchLimit = limit || this.config.defaultLimit || 5;
       
       // If embeddings are enabled, use vector search
       if (this.config.useEmbeddings && this.embeddingServiceInitialized) {
@@ -166,7 +166,7 @@ export class SearchTool {
       console.log(`   - First 5 values: [${queryEmbedding.slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`);
       
       const searchEngine = getSearchEngine();
-      const searchLimit = limit || this.config.defaultLimit || 10;
+      const searchLimit = limit || this.config.defaultLimit || 5;
       const minScore = this.config.minScore ?? 0.1;
       
       // Perform vector search
