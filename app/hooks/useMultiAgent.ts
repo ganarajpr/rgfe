@@ -239,7 +239,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         addStatusMessage(orchestratorResponse.content, 'orchestrator');
         setCurrentAgent('searcher');
 
-        // Perform search
+        // Perform search using tool selection
         const searchContext: AgentContext = {
           ...context,
           currentAgent: 'searcher',
@@ -254,13 +254,15 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         console.log('🔍 SEARCHER REQUEST');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('Query:', userQuery);
-        console.log('Generating multiple search terms...');
+        console.log('Selecting appropriate search tool...');
         console.log('───────────────────────────────────────────────────────────');
 
         // Add initial status message
-        addStatusMessage('Generating multiple search approaches...', 'searcher');
+        addStatusMessage('Selecting appropriate search tool...', 'searcher');
 
-        const searchResponse = await searcherRef.current.search(searchContext, signal);
+        // For now, default to vector search - in a full implementation, 
+        // this would use an LLM to select the appropriate tool
+        const searchResponse = await searcherRef.current.vector_search(userQuery);
         currentSearchResultsRef.current = searchResponse.searchResults || [];
         
         // Track the initial search term (extract from user query)
@@ -298,7 +300,8 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
               searchTerm: userQuery,
               searchIteration: 0,
               maxSearchIterations: 5,
-              avgRelevanceScore: avgRelevance
+              avgRelevanceScore: avgRelevance,
+              toolCall: searchResponse.metadata?.toolCall
             }
           );
         }
@@ -453,7 +456,8 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
             searchTerm: newSearchTerm,
             searchIteration: searchIterationRef.current,
             maxSearchIterations: 5,
-            avgRelevanceScore: avgRelevance
+            avgRelevanceScore: avgRelevance,
+            toolCall: additionalSearchResponse.metadata?.toolCall
           }
         );
       }
@@ -641,7 +645,8 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
             searchTerm: newSearchTerm,
             searchIteration: searchIterationRef.current,
             maxSearchIterations: 5,
-            avgRelevanceScore: avgRelevance
+            avgRelevanceScore: avgRelevance,
+            toolCall: additionalSearchResponse.metadata?.toolCall
           }
         );
       }

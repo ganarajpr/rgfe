@@ -1,7 +1,8 @@
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { generateText } from 'ai';
-import { AgentContext, AgentResponse, SearchResult } from './types';
+import { AgentResponse, SearchResult } from './types';
 import { getSearchTool } from '../tools/search-tool';
+import { getSearchEngine } from '../search-engine';
 
 export class SearcherAgent {
   private readonly model: LanguageModelV2;
@@ -242,6 +243,7 @@ Sanskrit search phrase:`;
     }
   }
 
+
   /**
    * Generate a single focused search term/phrase IN SANSKRIT based on the request
    * This is called by the orchestrator with specific search context
@@ -287,11 +289,10 @@ Sanskrit search phrase:`;
   }
 
   /**
-   * Perform a single focused search based on the search request
-   * The orchestrator provides what should be searched
+   * Vector search tool - semantic similarity search using embeddings
    */
-  async search(context: AgentContext, signal?: AbortSignal, searchRequest?: string): Promise<AgentResponse> {
-    const requestToSearch = searchRequest || context.userQuery;
+  async vector_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    const requestToSearch = searchSuggestion || userQuery;
 
     try {
       // Ensure search tool is initialized
@@ -299,74 +300,249 @@ Sanskrit search phrase:`;
         await this.initializeSearchTool();
       }
 
-      // Generate single focused search term
-      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
-      
       // Get the search tool
       const searchTool = getSearchTool();
       
-      console.log(`🔍 Performing search with term: "${searchTerm}"`);
+      console.log(`🧠 Executing vector search`);
+      console.log(`   User Query: "${userQuery}"`);
+      if (searchSuggestion) {
+        console.log(`   Search Suggestion: "${searchSuggestion}"`);
+      }
       
       // Notify coordinator about search
       if (this.coordinatorCallback) {
-        this.coordinatorCallback(`Searching: "${searchTerm}"`);
+        this.coordinatorCallback(`Vector search: "${requestToSearch}"`);
       }
 
-      let searchResults: SearchResult[] = [];
-      try {
-        searchResults = await searchTool.search(searchTerm, 5);
-        console.log(`   ✅ Found ${searchResults.length} results`);
-      } catch (error) {
-        console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
-      }
+      // Generate Sanskrit search term
+      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
+      console.log(`   🧠 Performing vector search with term: "${searchTerm}"`);
+      
+      const searchResults = await searchTool.search(searchTerm, 5);
+      console.log(`   ✅ Found ${searchResults.length} results using vector search`);
 
-      // Log search results
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('🔍 SEARCH RESULTS');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log(`Search term: "${searchTerm}"`);
-      console.log(`Results found: ${searchResults.length}`);
-      if (searchResults.length > 0) {
-        console.log('Top results:');
-        searchResults.slice(0, 3).forEach((result, i) => {
-          console.log(`  ${i + 1}. [${result.relevance.toFixed(3)}] ${result.title}`);
-        });
-      }
-      console.log('═══════════════════════════════════════════════════════════\n');
-
-      if (searchResults.length === 0) {
-        console.log('⚠️ No search results found');
-        return {
-          content: 'No results found in the RigVeda corpus for this search.',
-          nextAgent: 'generator',
-          isComplete: false,
-          searchResults: [],
-          statusMessage: 'No results found',
-        };
-      }
-
-      return {
-        content: `Found ${searchResults.length} relevant verses from the RigVeda.`,
-        nextAgent: 'generator',
-        isComplete: false,
-        searchResults: searchResults,
-        statusMessage: `Found ${searchResults.length} relevant verses`,
-      };
+      return this.createSearchResponse(searchResults, 'vector', searchTerm, userQuery, searchSuggestion);
     } catch (error) {
-      console.error('❌ Searcher error:', error);
+      console.error('❌ Vector search error:', error);
+      return this.createErrorResponse('Vector search failed', userQuery, searchSuggestion);
+    }
+  }
+
+  /**
+   * Text search tool - full-text search for specific terms
+   */
+  async text_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    const requestToSearch = searchSuggestion || userQuery;
+
+    try {
+      // Ensure search tool is initialized
+      if (!this.searchToolInitialized) {
+        await this.initializeSearchTool();
+      }
+
+      // Get the search engine directly for text search
+      const searchEngine = getSearchEngine();
       
-      // Fallback to simulated results if search fails
-      console.log('⚠️ Falling back to simulated search results');
-      const fallbackResults = this.createFallbackResults(requestToSearch);
+      console.log(`📝 Executing text search`);
+      console.log(`   User Query: "${userQuery}"`);
+      if (searchSuggestion) {
+        console.log(`   Search Suggestion: "${searchSuggestion}"`);
+      }
       
+      // Notify coordinator about search
+      if (this.coordinatorCallback) {
+        this.coordinatorCallback(`Text search: "${requestToSearch}"`);
+      }
+
+      // Generate Sanskrit search term
+      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
+      console.log(`   📝 Performing text search with term: "${searchTerm}"`);
+      
+      const textResults = await searchEngine.textSearch(searchTerm, 5);
+      const searchResults = textResults.map((result) => ({
+        title: `${result.book || 'Unknown'} - ${result.bookContext || 'No context'}`,
+        content: result.text,
+        relevance: result.score,
+        source: result.book,
+        bookContext: result.bookContext,
+      }));
+      
+      console.log(`   ✅ Found ${searchResults.length} results using text search`);
+
+      return this.createSearchResponse(searchResults, 'text', searchTerm, userQuery, searchSuggestion);
+    } catch (error) {
+      console.error('❌ Text search error:', error);
+      return this.createErrorResponse('Text search failed', userQuery, searchSuggestion);
+    }
+  }
+
+  /**
+   * Book context search tool - direct verse lookup by reference
+   */
+  async bookContext_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    const requestToSearch = searchSuggestion || userQuery;
+
+    try {
+      // Ensure search tool is initialized
+      if (!this.searchToolInitialized) {
+        await this.initializeSearchTool();
+      }
+
+      // Get the search tool
+      const searchTool = getSearchTool();
+      
+      console.log(`🎯 Executing book context search`);
+      console.log(`   User Query: "${userQuery}"`);
+      if (searchSuggestion) {
+        console.log(`   Search Suggestion: "${searchSuggestion}"`);
+      }
+      
+      // Notify coordinator about search
+      if (this.coordinatorCallback) {
+        this.coordinatorCallback(`Book context search: "${requestToSearch}"`);
+      }
+
+      // Use the search request directly as book context
+      const bookContext = requestToSearch;
+      console.log(`   🎯 Searching for verse reference: "${bookContext}"`);
+      
+      const searchResults = await searchTool.searchByBookContext(bookContext, 5);
+      console.log(`   ✅ Found ${searchResults.length} results using book context search`);
+
+      return this.createSearchResponse(searchResults, 'bookContext', bookContext, userQuery, searchSuggestion);
+    } catch (error) {
+      console.error('❌ Book context search error:', error);
+      return this.createErrorResponse('Book context search failed', userQuery, searchSuggestion);
+    }
+  }
+
+  /**
+   * Hybrid search tool - combines vector and text search
+   */
+  async hybrid_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    const requestToSearch = searchSuggestion || userQuery;
+
+    try {
+      // Ensure search tool is initialized
+      if (!this.searchToolInitialized) {
+        await this.initializeSearchTool();
+      }
+
+      // Get the search tool
+      const searchTool = getSearchTool();
+      
+      console.log(`🔀 Executing hybrid search`);
+      console.log(`   User Query: "${userQuery}"`);
+      if (searchSuggestion) {
+        console.log(`   Search Suggestion: "${searchSuggestion}"`);
+      }
+      
+      // Notify coordinator about search
+      if (this.coordinatorCallback) {
+        this.coordinatorCallback(`Hybrid search: "${requestToSearch}"`);
+      }
+
+      // Generate Sanskrit search term
+      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
+      console.log(`   🔀 Performing hybrid search with term: "${searchTerm}"`);
+      
+      const hybridResult = await searchTool.hybridSearch(searchTerm, 5);
+      const searchResults = hybridResult.results;
+      console.log(`   ✅ Found ${searchResults.length} results using hybrid search`);
+
+      return this.createSearchResponse(searchResults, 'hybrid', searchTerm, userQuery, searchSuggestion);
+    } catch (error) {
+      console.error('❌ Hybrid search error:', error);
+      return this.createErrorResponse('Hybrid search failed', userQuery, searchSuggestion);
+    }
+  }
+
+  /**
+   * Create a standardized search response
+   */
+  private createSearchResponse(
+    searchResults: SearchResult[], 
+    searchType: string, 
+    searchTerm: string,
+    userQuery: string,
+    searchSuggestion?: string
+  ): AgentResponse {
+    // Log search results
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔍 SEARCH RESULTS');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`Search Type: ${searchType}`);
+    console.log(`Search term: "${searchTerm}"`);
+    console.log(`Results found: ${searchResults.length}`);
+    if (searchResults.length > 0) {
+      console.log('Top results:');
+      searchResults.slice(0, 3).forEach((result, i) => {
+        console.log(`  ${i + 1}. [${result.relevance.toFixed(3)}] ${result.title}`);
+      });
+    }
+    console.log('═══════════════════════════════════════════════════════════\n');
+
+    if (searchResults.length === 0) {
+      console.log('⚠️ No search results found');
       return {
-        content: 'Search completed (using fallback results)',
-        nextAgent: 'generator',
+        content: 'No results found in the RigVeda corpus for this search.',
+        nextAgent: 'analyzer',
         isComplete: false,
-        searchResults: fallbackResults,
-        statusMessage: 'Search completed with fallback results',
+        searchResults: [],
+        statusMessage: 'No results found',
+        metadata: {
+          toolCall: {
+            name: `${searchType}_search` as 'vector_search' | 'text_search' | 'bookContext_search' | 'hybrid_search',
+            parameters: {
+              userQuery,
+              searchSuggestion
+            }
+          }
+        }
       };
     }
+
+    return {
+      content: `Found ${searchResults.length} relevant verses from the RigVeda using ${searchType} search.`,
+      nextAgent: 'analyzer',
+      isComplete: false,
+      searchResults: searchResults,
+      statusMessage: `Found ${searchResults.length} relevant verses (${searchType} search)`,
+      metadata: {
+        toolCall: {
+          name: `${searchType}_search` as any,
+          parameters: {
+            userQuery,
+            searchSuggestion
+          }
+        }
+      }
+    };
+  }
+
+  /**
+   * Create a standardized error response
+   */
+  private createErrorResponse(errorMessage: string, userQuery: string, searchSuggestion?: string): AgentResponse {
+    console.log('⚠️ Falling back to simulated search results');
+    const fallbackResults = this.createFallbackResults(userQuery);
+    
+    return {
+      content: `Search completed (using fallback results) - ${errorMessage}`,
+      nextAgent: 'analyzer',
+      isComplete: false,
+      searchResults: fallbackResults,
+      statusMessage: 'Search completed with fallback results',
+        metadata: {
+          toolCall: {
+            name: 'fallback_search' as 'fallback_search',
+            parameters: {
+              userQuery,
+              searchSuggestion
+            }
+          }
+        }
+    };
   }
 
   /**
@@ -375,25 +551,25 @@ Sanskrit search phrase:`;
   private createFallbackResults(query: string): SearchResult[] {
     return [
       {
-        id: `fallback-${Date.now()}-1`,
         title: 'Sanskrit Literature Reference',
         content: `Information related to: ${query}. This is a fallback result as the search system encountered an issue.`,
         relevance: 0.7,
         source: 'Sanskrit Knowledge Base',
+        bookContext: 'Fallback-1',
       },
       {
-        id: `fallback-${Date.now()}-2`,
         title: 'Classical Text Reference',
         content: 'Relevant passages and teachings from classical Sanskrit texts.',
         relevance: 0.6,
         source: 'Sanskrit Texts',
+        bookContext: 'Fallback-2',
       },
     ];
   }
 
   /**
-   * Perform additional search with new context from generator
-   * This is called when the generator determines it needs more information
+   * Perform additional search with new context from analyzer
+   * This is called when the analyzer determines it needs more information
    */
   async searchWithContext(
     searchRequest: string,
@@ -440,9 +616,9 @@ Sanskrit search phrase:`;
         console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
       }
 
-      // Filter out duplicates based on ID
-      const previousIds = new Set(previousResults.map(r => r.id));
-      const uniqueNewResults = newSearchResults.filter(r => !previousIds.has(r.id));
+      // Filter out duplicates based on bookContext
+      const previousBookContexts = new Set(previousResults.map(r => r.bookContext));
+      const uniqueNewResults = newSearchResults.filter(r => !previousBookContexts.has(r.bookContext));
 
       // Combine with previous results
       const allResults = [...previousResults, ...uniqueNewResults];
@@ -457,24 +633,40 @@ Sanskrit search phrase:`;
 
       return {
         content: `Found ${uniqueNewResults.length} additional verses from the RigVeda.`,
-        nextAgent: 'generator',
+        nextAgent: 'analyzer',
         isComplete: false,
         searchResults: allResults,
         statusMessage: `Found ${uniqueNewResults.length} new verses (${allResults.length} total)`,
         // Add metadata to track new vs all results for UI display
         metadata: {
           newResults: uniqueNewResults,
-          allResults: allResults
+          allResults: allResults,
+          toolCall: {
+            name: 'additional_search' as 'additional_search',
+            parameters: {
+              userQuery: searchRequest,
+              searchSuggestion: searchRequest
+            }
+          }
         }
       };
     } catch (error) {
       console.error('❌ Searcher additional search error:', error);
       return {
         content: 'Error performing additional search',
-        nextAgent: 'generator',
+        nextAgent: 'analyzer',
         isComplete: false,
         searchResults: previousResults, // Return previous results on error
         statusMessage: 'Additional search failed, using previous results',
+        metadata: {
+          toolCall: {
+            name: 'error_search' as 'error_search',
+            parameters: {
+              userQuery: searchRequest,
+              searchSuggestion: searchRequest
+            }
+          }
+        }
       };
     }
   }

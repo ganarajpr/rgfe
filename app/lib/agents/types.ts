@@ -37,11 +37,17 @@ export interface AgentMessage {
     verseImportance?: Record<string, ImportanceLevel>; // Map verse ID to importance
     searchTerm?: string; // The specific search term used for this iteration
     avgRelevanceScore?: number; // Average relevance score for this search iteration
+    toolCall?: {
+      name: 'vector_search' | 'text_search' | 'bookContext_search' | 'hybrid_search' | 'additional_search' | 'fallback_search' | 'error_search';
+      parameters: {
+        userQuery: string;
+        searchSuggestion?: string;
+      };
+    };
   };
 }
 
 export interface SearchResult {
-  id: string;
   title: string;
   content?: string; // Sanskrit text
   translation?: string; // English translation
@@ -72,6 +78,13 @@ export interface AgentResponse {
   metadata?: {
     newResults?: SearchResult[];
     allResults?: SearchResult[];
+    toolCall?: {
+      name: 'vector_search' | 'text_search' | 'bookContext_search' | 'hybrid_search' | 'additional_search' | 'fallback_search' | 'error_search';
+      parameters: {
+        userQuery: string;
+        searchSuggestion?: string;
+      };
+    };
   };
 }
 

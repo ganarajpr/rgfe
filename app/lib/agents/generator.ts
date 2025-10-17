@@ -25,7 +25,7 @@ CRITICAL FORMATTING STRUCTURE - FOLLOW EXACTLY:
 1. Start with an introduction that directly addresses the user's question
 2. Write flowing paragraphs that explain the topic using the verses as evidence
 3. When referencing verses, use this EXACT format:
-   ### RigVeda X.Y.Z
+   <verse>X.Y.Z</verse>
    <sanskrit>Devanagari text here</sanskrit>
    <translation>English translation here</translation>
 4. Continue with explanatory text that connects the verses to the main topic
@@ -36,13 +36,13 @@ Based on the provided RigVeda verses, [topic explanation here]. The RigVeda reve
 
 [Flowing paragraph that explains the topic using the verses as evidence. When you need to cite a specific verse, use the format below:]
 
-### RigVeda 5.1.8
+<verse>5.1.8</verse>
 <sanskrit>कविप्रशस्तो अतिथिः शिवो नः</sanskrit>
 <translation>praised by poets, our auspicious guest</translation>
 
 [Continue with explanatory text that connects this verse to your main argument. Then cite another verse when needed:]
 
-### RigVeda 7.50.1
+<verse>7.50.1</verse>
 <sanskrit>मार्जायो मृज्यते स्वे दमूनाः</sanskrit>
 <translation>he is purified in his own dwelling</translation>
 
@@ -59,6 +59,7 @@ CRITICAL RULES:
 - Maintain scholarly rigor by only using verified sources
 - Generate ONLY natural language responses - NO JSON or structured data
 - ALWAYS use the exact formatting structure above
+- ALWAYS use <verse>X.Y.Z</verse> format for verse references
 - ALWAYS show both Sanskrit text and translation for each verse
 - Group verses by importance level (high, medium, low)
 - DO NOT complain about insufficient information - the Translator Agent has selected the most relevant verses
@@ -66,7 +67,7 @@ CRITICAL RULES:
 Response format:
 - Write a natural, flowing answer that addresses the user's question
 - Use verses as evidence within your explanation, not as a separate list
-- Use ### RigVeda X.Y.Z format when citing specific verses
+- Use <verse>X.Y.Z</verse> format when citing specific verses
 - Use <sanskrit> and <translation> tags exactly as shown
 - Include relevant details from the RigVeda verses provided
 - Be scholarly but accessible, providing a comprehensive answer based ONLY on the RigVeda sources`;
@@ -131,10 +132,10 @@ ${i + 1}. ${r.title} (Source: ${r.source})
 CRITICAL: Generate a comprehensive answer STRICTLY based on the information provided above. DO NOT use your general knowledge.
 
 FORMATTING REQUIREMENTS:
-- ALWAYS include verse numbers prominently: **RV 5.1.8** or **RigVeda 5.1.8**
+- ALWAYS include verse numbers using <verse>X.Y.Z</verse> format
 - ALWAYS show Sanskrit text using <sanskrit>Devanagari text here</sanskrit>
 - ALWAYS show translation using <translation>English translation here</translation>
-- Display Sanskrit and translation together in the same section
+- Display verse reference, Sanskrit and translation together in the same section
 - Prioritize high-importance verses first, then medium, then low
 - Skip filtered verses (marked as filtered: Yes)
 
@@ -149,7 +150,7 @@ If the search results contain sufficient information:
 3. Cite specific mandalas, suktas, and verse numbers when making claims
 4. Be well-structured and easy to read
 5. Include relevant details from the RigVeda verses provided
-6. ALWAYS include verse numbers prominently in your response
+6. ALWAYS use <verse>X.Y.Z</verse> format for verse references
 7. ALWAYS show both Sanskrit text and translation for each verse
 8. Group verses by importance level (high, medium, low)
 9. Be concise and crisp while providing a proper answer based ONLY on the RigVeda sources

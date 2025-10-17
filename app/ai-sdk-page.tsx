@@ -2,15 +2,14 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useWebLLM } from './hooks/useWebLLM';
-import { useMultiAgent } from './hooks/useMultiAgent';
+import { useAISDKAgent } from './hooks/useAISDKAgent';
 import { createWebLLMProvider } from './lib/webllm-provider';
 import { createGeminiProvider } from './lib/gemini-provider';
 import LLMSelector, { ModelSelection, ProviderType } from './components/LLMSelector';
 import LoadingScreen from './components/LoadingScreen';
-import AgentChatInterface from './components/AgentChatInterface';
-import SystemSelector from './components/SystemSelector';
+import AISDKChatInterface from './components/AISDKChatInterface';
 
-export default function Home() {
+export default function AISDKPage() {
   const {
     isLoading,
     isModelLoaded,
@@ -31,23 +30,23 @@ export default function Home() {
   // Create AI SDK provider based on provider type
   const aiModel = useMemo(() => {
     if (providerType === 'gemini' && geminiApiKey) {
-      console.log('Creating Gemini provider');
+      console.log('Creating Gemini provider for AI SDK');
       return createGeminiProvider(geminiApiKey);
     } else if (providerType === 'webllm' && engine && currentModel && isModelLoaded) {
-      console.log('Creating WebLLM provider');
+      console.log('Creating WebLLM provider for AI SDK');
       return createWebLLMProvider(engine, currentModel);
     }
     return null;
   }, [providerType, geminiApiKey, engine, currentModel, isModelLoaded]);
 
-  // Initialize multi-agent system
+  // Initialize AI SDK Agent system
   const {
     messages,
     isProcessing,
-    currentAgent,
+    currentStep,
     processUserMessage,
     resetConversation,
-  } = useMultiAgent({ 
+  } = useAISDKAgent({ 
     model: aiModel
   });
 
@@ -58,7 +57,7 @@ export default function Home() {
       const savedGeminiKey = localStorage.getItem('gemini_api_key');
       
       if (savedProvider === 'gemini' && savedGeminiKey) {
-        console.log('Found saved Gemini configuration');
+        console.log('Found saved Gemini configuration for AI SDK');
         setProviderType('gemini');
         setGeminiApiKey(savedGeminiKey);
         setGeminiModelReady(true);
@@ -68,7 +67,7 @@ export default function Home() {
         
         if (existingModel) {
           // If there's a cached model, try to load it
-          console.log('Found cached WebLLM model:', existingModel);
+          console.log('Found cached WebLLM model for AI SDK:', existingModel);
           setProviderType('webllm');
           const success = await loadModel(existingModel);
           if (!success) {
@@ -78,10 +77,10 @@ export default function Home() {
             setProviderType(null);
           }
         } else {
-          console.log('No cached WebLLM model found');
+          console.log('No cached WebLLM model found for AI SDK');
         }
       } else {
-        console.log('No saved provider configuration found');
+        console.log('No saved provider configuration found for AI SDK');
       }
       
       setIsInitialCheck(false);
@@ -92,7 +91,7 @@ export default function Home() {
   }, []);
 
   const handleSelectModel = async (selection: ModelSelection) => {
-    console.log('Model selection:', selection);
+    console.log('Model selection for AI SDK:', selection);
     
     if (selection.provider === 'gemini') {
       // Save provider type and API key
@@ -103,7 +102,7 @@ export default function Home() {
       }
       setProviderType('gemini');
       setGeminiModelReady(true);
-      console.log('Gemini provider configured with API key');
+      console.log('Gemini provider configured with API key for AI SDK');
     } else if (selection.provider === 'webllm') {
       // Save provider type
       localStorage.setItem('provider_type', 'webllm');
@@ -115,7 +114,7 @@ export default function Home() {
   };
 
   const handleNewChat = () => {
-    const confirmNewChat = messages.length === 0 || window.confirm(
+    const confirmNewChat = messages.length === 0 || globalThis.confirm(
       'Are you sure you want to start a new chat? This will clear all messages.'
     );
     
@@ -126,17 +125,17 @@ export default function Home() {
 
   const handleSendMessage = async (message: string) => {
     if (!aiModel) {
-      console.error('Model not ready');
+      console.error('Model not ready for AI SDK');
       return;
     }
     
     if (providerType === 'gemini' && !geminiModelReady) {
-      console.error('Gemini model not ready');
+      console.error('Gemini model not ready for AI SDK');
       return;
     }
     
     if (providerType === 'webllm' && !isModelLoaded) {
-      console.error('WebLLM model not loaded');
+      console.error('WebLLM model not loaded for AI SDK');
       return;
     }
     
@@ -161,7 +160,7 @@ export default function Home() {
     return (
       <LoadingScreen
         progress={loadingProgress}
-        message={loadingMessage || 'Initializing...'}
+        message={loadingMessage || 'Initializing AI SDK Agent system...'}
       />
     );
   }
@@ -176,23 +175,20 @@ export default function Home() {
     return <LLMSelector onSelectModel={handleSelectModel} isOpen={true} />;
   }
 
-  // Show multi-agent chat interface once model is ready
+  // Show AI SDK Agent chat interface once model is ready
   const displayModelName = providerType === 'gemini' 
-    ? 'Gemini 2.5 Flash' 
-    : currentModel || 'Unknown';
+    ? 'Gemini 2.5 Flash (AI SDK)' 
+    : `${currentModel || 'Unknown'} (AI SDK)`;
 
   return (
-    <>
-      <SystemSelector />
-      <AgentChatInterface
-        onSendMessage={handleSendMessage}
-        messages={messages}
-        isProcessing={isProcessing}
-        currentAgent={currentAgent}
-        onNewChat={handleNewChat}
-        onClearCache={handleClearCache}
-        modelName={displayModelName}
-      />
-    </>
+    <AISDKChatInterface
+      onSendMessage={handleSendMessage}
+      messages={messages}
+      isProcessing={isProcessing}
+      currentStep={currentStep}
+      onNewChat={handleNewChat}
+      onClearCache={handleClearCache}
+      modelName={displayModelName}
+    />
   );
 }

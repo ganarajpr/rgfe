@@ -187,11 +187,84 @@ export class SearchTool {
   }
 
   /**
+   * Perform search by specific book context (verse reference)
+   * @param bookContext - The verse reference (e.g., "10.39", "7.50.1")
+   * @param limit - Maximum number of results (optional)
+   * @returns Array of search results in agent-friendly format
+   */
+  async searchByBookContext(bookContext: string, limit?: number): Promise<SearchResult[]> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    try {
+      console.log('🔍 Using book context search for verse reference');
+      
+      const searchEngine = getSearchEngine();
+      const searchLimit = limit || this.config.defaultLimit || 5;
+      
+      const results = await searchEngine.searchByBookContext(bookContext, searchLimit);
+      
+      console.log(`✅ Found ${results.length} results using book context search`);
+      
+      // Convert to agent-friendly format
+      return this.convertToAgentResults(results);
+    } catch (error) {
+      console.error('❌ Book context search failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Perform hybrid search combining vector and text search
+   * @param query - The search query text
+   * @param limit - Maximum number of results (optional)
+   * @returns Search results with query embedding
+   */
+  async hybridSearch(query: string, limit?: number): Promise<SearchResultWithEmbedding> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    try {
+      console.log('🔍 Using hybrid search (vector + text)');
+      
+      const searchEngine = getSearchEngine();
+      const searchLimit = limit || this.config.defaultLimit || 5;
+      
+      // Generate embedding for the query
+      if (this.config.useEmbeddings && this.embeddingServiceInitialized) {
+        const embeddingService = getEmbeddingService();
+        const queryEmbedding = await embeddingService.generateEmbedding(query);
+        
+        const minScore = this.config.minScore ?? 0.0;
+        const results = await searchEngine.hybridSearch(
+          query,
+          queryEmbedding,
+          searchLimit,
+          minScore
+        );
+        
+        console.log(`✅ Found ${results.length} results using hybrid search`);
+        
+        return {
+          results: this.convertToAgentResults(results),
+          queryEmbedding: queryEmbedding
+        };
+      } else {
+        throw new Error('Hybrid search requires embedding service to be initialized');
+      }
+    } catch (error) {
+      console.error('❌ Hybrid search failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Convert search engine results to agent-friendly format
    */
   private convertToAgentResults(results: SearchResultItem[]): SearchResult[] {
     return results.map((result) => ({
-      id: result.id,
       title: `${result.book || 'Unknown'} - ${result.bookContext || 'No context'}`,
       content: result.text,
       relevance: result.score,

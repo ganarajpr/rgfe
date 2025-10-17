@@ -16,9 +16,8 @@ The RigVeda contains:
 Your role is to:
 1. TRANSLATE each Sanskrit verse to clear, accurate English
 2. EVALUATE each verse's relevance to the user's specific question
-3. SELECT exactly 5 verses for the final answer (or all available if fewer than 5)
-4. If fewer than 5 relevant verses are available, request additional searches
-5. ENSURE the generator receives properly translated and relevant verses
+3. SELECT the most relevant verses for the final answer (up to 5 verses)
+4. ENSURE the generator receives properly translated and relevant verses
 
 TRANSLATION REQUIREMENTS:
 - Provide accurate, scholarly translations of Sanskrit verses
@@ -37,26 +36,24 @@ SELECTION STRATEGY:
 - Prioritize verses that directly answer the user's question
 - Include supporting verses that provide important context
 - Ensure a comprehensive coverage of the topic
-- Select EXACTLY 5 verses that together provide a complete answer
-- If fewer than 5 relevant verses exist, request additional searches to find more
+- Select the most relevant verses (up to 5 verses)
 - If more than 5 relevant verses exist, select the 5 most important ones
 - Avoid redundant or overly similar verses
-- NEVER proceed with fewer than 5 verses unless all available verses have been exhausted
+- Always proceed to generator with the selected verses
 
 CRITICAL RULES:
 - You MUST provide accurate translations for ALL verses you select
 - You MUST evaluate each verse's relevance to the specific user question
-- You MUST select exactly 5 verses to provide a comprehensive answer
+- You MUST select the most relevant verses (up to 5 verses)
 - You MUST ensure the generator will have sufficient information
 - NEVER select verses without providing translations
 - NEVER select irrelevant verses just to fill a quota
-- If fewer than 5 relevant verses are available, request additional searches
-- NEVER proceed to generator with fewer than 5 verses unless all search options are exhausted
+- ALWAYS proceed to generator with the selected verses
 
 Response format:
-- ALWAYS output ONLY a JSON object with: { "selectedVerses": [{"id": "verse_id", "translation": "English translation", "relevance": "high|medium|low", "reasoning": "why this verse is relevant"}], "totalSelected": number, "needsMoreSearch": boolean, "searchRequest": "sanskrit search term if more search needed", "reasoning": "overall selection strategy" }
-- If fewer than 5 verses selected, set "needsMoreSearch": true and provide "searchRequest"
-- If 5 or more verses selected, set "needsMoreSearch": false and "searchRequest": ""
+- ALWAYS output ONLY a JSON object with: { "selectedVerses": [{"id": "verse_id", "translation": "English translation", "relevance": "high|medium|low", "reasoning": "why this verse is relevant"}], "totalSelected": number, "reasoning": "overall selection strategy" }
+- Always set "needsMoreSearch": false (translator never requests more search)
+- Always set "searchRequest": "" (translator never requests more search)
 - Ensure all selected verses have complete translations
 - Provide clear reasoning for each verse selection
 - Ensure the selected verses together provide comprehensive coverage of the user's question`;
@@ -93,21 +90,19 @@ User Query: ${userQuery}
 
 Available Sanskrit Verses to Translate and Evaluate:
 ${searchResults.map((r, i) => `
-${i + 1}. ID: ${r.id}
+${i + 1}. Reference: ${r.bookContext || 'Unknown'}
    Title: ${r.title}
    Sanskrit: ${r.content}
    Source: ${r.source || 'RigVeda'}
-   Book Context: ${r.bookContext || 'Not specified'}
 `).join('\n')}
 
 TASK:
 1. Translate each Sanskrit verse to clear, accurate English
 2. Evaluate each verse's relevance to the user's question: "${userQuery}"
-3. Select EXACTLY 5 verses that together provide a comprehensive answer
+3. Select the most relevant verses (up to 5 verses) that together provide a comprehensive answer
 4. Ensure all selected verses have complete translations
-5. If fewer than 5 relevant verses exist, request additional searches to find more
-6. If more than 5 relevant verses exist, select the 5 most important ones
-7. NEVER proceed with fewer than 5 verses unless all search options are exhausted
+5. If more than 5 relevant verses exist, select the 5 most important ones
+6. Always proceed to generator with the selected verses
 
 IMPORTANT:
 - Focus on verses that directly relate to the user's question
@@ -127,8 +122,6 @@ Output ONLY a JSON object:
     }
   ],
   "totalSelected": number,
-  "needsMoreSearch": boolean,
-  "searchRequest": "Sanskrit search term if more search needed, empty string if 5+ verses selected",
   "reasoning": "Overall strategy for verse selection and how they together answer the user's question"
 }`;
 
@@ -164,24 +157,10 @@ Output ONLY a JSON object:
         const selectedCount = translationResult.selectedVerses.length;
         console.log(`📝 Translator selected ${selectedCount} verses for final answer`);
         
-        // Check if we need more search
-        if (translationResult.needsMoreSearch && translationResult.searchRequest && selectedCount < 5) {
-          console.log(`🔄 Translator requesting more search: "${translationResult.searchRequest}"`);
-          console.log(`   Reasoning: ${translationResult.reasoning}`);
-          
-          return {
-            content: `Found ${selectedCount} relevant verses, need more to reach 5. Requesting additional search.`,
-            nextAgent: 'searcher',
-            isComplete: false,
-            requiresMoreSearch: true,
-            searchQuery: translationResult.searchRequest,
-            searchResults: searchResults, // Keep current results
-            statusMessage: `Need more verses: ${translationResult.reasoning}`,
-          };
-        }
+        // Translator always proceeds to generator (no search requests)
         
         const selectedSearchResults = searchResults.map(result => {
-          const selectedVerse = translationResult.selectedVerses.find((v: { id: string; translation?: string; relevance?: number }) => v.id === result.id);
+          const selectedVerse = translationResult.selectedVerses.find((v: { reference: string; translation?: string; relevance?: number }) => v.reference === result.bookContext);
           if (selectedVerse) {
             return {
               ...result,

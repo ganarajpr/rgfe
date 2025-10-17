@@ -238,6 +238,165 @@ class SearchEngine {
   }
 
   /**
+   * Perform search by specific book context (verse reference)
+   * @param bookContext - The verse reference (e.g., "10.39", "7.50.1")
+   * @param limit - Maximum number of results to return (default: 10)
+   * @returns Array of search results
+   */
+  async searchByBookContext(bookContext: string, limit: number = 10): Promise<SearchResultItem[]> {
+    if (!this.isInitialized || !this.db) {
+      await this.initialize();
+    }
+
+    if (!this.db) {
+      throw new Error('Search engine is not properly initialized');
+    }
+
+    try {
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🔍 BOOK CONTEXT SEARCH');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`Book Context: "${bookContext}"`);
+      console.log('Parameters:');
+      console.log(`   - Limit: ${limit}`);
+      console.log(`   - Search field: bookContext only`);
+      console.log('───────────────────────────────────────────────────────────');
+      
+      // Extract the mandala.sukta prefix from the query for proper matching
+      const parts = bookContext.split('.');
+      let searchPrefix = bookContext;
+
+      if (parts.length >= 2) {
+        // Query like "1.1" or "1.1.1" - search for prefix "1.1."
+        searchPrefix = `${parts[0]}.${parts[1]}.`;
+      } else if (parts.length === 1) {
+        // Query like "1" - search for prefix "1."
+        searchPrefix = `${parts[0]}.`;
+      }
+
+      console.log(`   - Search prefix: "${searchPrefix}"`);
+
+      const results = await search(this.db, {
+        term: searchPrefix,
+        properties: ['bookContext'],
+        limit,
+        tolerance: 0, // Exact match for verse references
+      });
+
+      // Post-filter results to ensure exact prefix match
+      const filteredResults = results.hits.filter(hit => 
+        (hit.document.bookContext as string).startsWith(searchPrefix)
+      );
+
+      const searchResults = filteredResults.map((hit) => ({
+        id: hit.document.id as string,
+        text: hit.document.text as string,
+        book: hit.document.book as string,
+        bookContext: hit.document.bookContext as string,
+        score: hit.score,
+      }));
+
+      console.log('📊 BOOK CONTEXT SEARCH RESULTS');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log(`Found ${searchResults.length} results`);
+      
+      if (searchResults.length > 0) {
+        console.log('\nResults:');
+        searchResults.forEach((result, idx) => {
+          console.log(`\n${idx + 1}. Score: ${result.score.toFixed(4)}`);
+          console.log(`   Source: ${result.book} - ${result.bookContext}`);
+          console.log(`   Text: ${(result.text || 'No text available').substring(0, 100)}${(result.text || '').length > 100 ? '...' : ''}`);
+        });
+      } else {
+        console.log('⚠️ No results found for this book context');
+      }
+      console.log('═══════════════════════════════════════════════════════════\n');
+
+      return searchResults;
+    } catch (error) {
+      console.error('❌ Book context search failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Perform hybrid search combining vector and text search
+   * @param queryText - The text query
+   * @param queryEmbedding - The embedding vector for the search query
+   * @param limit - Maximum number of results to return (default: 10)
+   * @param threshold - Minimum similarity threshold (default: 0.0)
+   * @returns Array of search results
+   */
+  async hybridSearch(
+    queryText: string,
+    queryEmbedding: number[],
+    limit: number = 10,
+    threshold: number = 0.0
+  ): Promise<SearchResultItem[]> {
+    if (!this.isInitialized || !this.db) {
+      await this.initialize();
+    }
+
+    if (!this.db) {
+      throw new Error('Search engine is not properly initialized');
+    }
+
+    try {
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🔍 HYBRID SEARCH (Vector + Text)');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`Query: "${queryText}"`);
+      console.log('Parameters:');
+      console.log(`   - Limit: ${limit}`);
+      console.log(`   - Threshold: ${threshold}`);
+      console.log(`   - Embedding dimension: ${queryEmbedding.length}`);
+      console.log('───────────────────────────────────────────────────────────');
+      
+      const results = await search(this.db, {
+        mode: 'hybrid',
+        term: queryText,
+        vector: {
+          value: queryEmbedding,
+          property: 'embedding',
+        },
+        properties: ['text', 'book', 'bookContext'],
+        limit,
+        similarity: threshold,
+        includeVectors: false,
+      });
+
+      const searchResults = results.hits.map((hit) => ({
+        id: hit.document.id as string,
+        text: hit.document.text as string,
+        book: hit.document.book as string,
+        bookContext: hit.document.bookContext as string,
+        score: hit.score,
+      }));
+
+      console.log('📊 HYBRID SEARCH RESULTS');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log(`Found ${searchResults.length} results`);
+      
+      if (searchResults.length > 0) {
+        console.log('\nTop Results:');
+        searchResults.slice(0, 5).forEach((result, idx) => {
+          console.log(`\n${idx + 1}. Score: ${result.score.toFixed(4)}`);
+          console.log(`   Source: ${result.book} - ${result.bookContext}`);
+          console.log(`   Text: ${(result.text || 'No text available').substring(0, 100)}${(result.text || '').length > 100 ? '...' : ''}`);
+        });
+      } else {
+        console.log('⚠️ No results matched the similarity threshold');
+      }
+      console.log('═══════════════════════════════════════════════════════════\n');
+
+      return searchResults;
+    } catch (error) {
+      console.error('❌ Hybrid search failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get the total number of documents in the index
    */
   getDocumentCount(): number {

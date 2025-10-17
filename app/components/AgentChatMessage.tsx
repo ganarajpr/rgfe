@@ -90,9 +90,9 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
               <div className="space-y-3">
                 {searchResults.map((result) => (
                   <CitationVerse
-                    key={result.id}
+                    key={result.bookContext || result.title}
                     verse={result}
-                    importance={verseImportance[result.id] || 'medium'}
+                    importance={verseImportance[result.bookContext || result.title] || 'medium'}
                   />
                 ))}
               </div>
@@ -109,6 +109,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
     const searchTerm = message.metadata?.searchTerm || '';
     const iteration = message.metadata?.searchIteration || 0;
     const maxIterations = message.metadata?.maxSearchIterations || 3;
+    const toolCall = message.metadata?.toolCall;
     
     return (
       <div className="flex gap-4 py-4 px-4">
@@ -118,6 +119,11 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
             <span className="text-sm font-semibold text-green-800">
               🔍 Search Iteration {iteration + 1}/{maxIterations + 1}
             </span>
+            {toolCall && (
+              <span className="text-xs text-green-600 font-mono bg-green-100 px-3 py-1 rounded-full border border-green-300">
+                🔧 {toolCall.name}({toolCall.parameters.userQuery}{toolCall.parameters.searchSuggestion ? `, ${toolCall.parameters.searchSuggestion}` : ''})
+              </span>
+            )}
             {searchTerm && (
               <span className="text-xs text-green-700 font-mono bg-white px-3 py-1 rounded-full border border-green-300">
                 {searchTerm}
@@ -139,7 +145,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
               <div className="space-y-3">
                 {searchResults.map((result) => (
                   <CitationVerse
-                    key={result.id}
+                    key={result.bookContext || result.title}
                     verse={result}
                     importance="medium"
                   />

@@ -41,8 +41,8 @@ export function FinalAnswerDisplay({ content }: FinalAnswerDisplayProps) {
           conclusion: ''
         };
 
-        // Find all verse references in the content
-        const verseRegex = /###\s*(?:RV|RigVeda)\s+(\d+\.\d+\.\d+)/gi;
+        // Find all verse references in the content using new <verse> tag format
+        const verseRegex = /<verse>(\d+\.\d+\.\d+)<\/verse>/gi;
         const verses: Array<{ reference: string; sanskrit: string; translation: string; importance: ImportanceLevel }> = [];
         
         let match;
@@ -51,7 +51,7 @@ export function FinalAnswerDisplay({ content }: FinalAnswerDisplayProps) {
           const startIndex = match.index;
           
           // Find the content between this verse reference and the next one (or end)
-          const nextVerseIndex = content.indexOf('### RigVeda', startIndex + match[0].length);
+          const nextVerseIndex = content.indexOf('<verse>', startIndex + match[0].length);
           const verseSection = nextVerseIndex === -1 
             ? content.substring(startIndex)
             : content.substring(startIndex, nextVerseIndex);
@@ -120,7 +120,7 @@ export function FinalAnswerDisplay({ content }: FinalAnswerDisplayProps) {
     }
 
     // Split content by verse references and render with embedded cards
-    const verseRegex = /###\s*(?:RV|RigVeda)\s+(\d+\.\d+\.\d+)/gi;
+    const verseRegex = /<verse>(\d+\.\d+\.\d+)<\/verse>/gi;
     const parts = [];
     let lastIndex = 0;
     let match;

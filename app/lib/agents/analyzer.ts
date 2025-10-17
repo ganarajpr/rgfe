@@ -106,11 +106,11 @@ export class AnalyzerAgent {
     }
     
     if (relevantVerseCount >= 5) {
-      console.log(`✅ Sufficient relevant verses (${relevantVerseCount}) found, proceeding to translation`);
+      console.log(`✅ Maximum relevant verses (${relevantVerseCount}) reached, proceeding to translation`);
       return {
-        content: 'Sufficient relevant verses found. Proceeding to translation.',
+        content: 'Maximum relevant verses reached. Proceeding to translation.',
         isComplete: true,
-        statusMessage: 'Analysis complete - sufficient relevant verses found',
+        statusMessage: 'Analysis complete - maximum relevant verses reached',
         searchResults: searchResults, // Return results with evaluations
       };
     }
@@ -141,7 +141,7 @@ export class AnalyzerAgent {
 User Query: ${userQuery}
 
 Current Iteration: ${iterationCount + 1} of ${this.maxSearchIterations + 1}
-Relevant Verses Found: ${relevantVerseCount} (need 5 to stop)
+Relevant Verses Found: ${relevantVerseCount} (maximum 5 allowed)
 Total Results: ${searchResults.length}
 
 RELEVANCE SCORE ANALYSIS:
@@ -151,7 +151,7 @@ RELEVANCE SCORE ANALYSIS:
 
 Available Search Results (gathered so far):
 ${searchResults.map((r, i) => `
-${i + 1}. ID: ${r.id}
+${i + 1}. Reference: ${r.bookContext || 'Unknown'}
    Title: ${r.title}
    Relevance: ${(r.relevance * 100).toFixed(1)}% ${getResultLabel(r.relevance)}
    Text: ${r.content?.substring(0, 200)}...
@@ -162,7 +162,7 @@ TASK:
 1. Evaluate each verse individually for relevancy to the user's query
 2. Assign importance levels (high/medium/low) to each verse
 3. Mark irrelevant verses as filtered (but keep them)
-4. Determine if more search is needed based on relevant verse count
+4. Determine if more search is needed based on relevant verse count (stop when you have UP TO 5 relevant verses)
 
 PREVIOUS SEARCH TERMS USED (DO NOT REPEAT THESE):
 ${previousSearchTerms.length > 0 ? previousSearchTerms.map((term, i) => `${i + 1}. "${term}"`).join('\n') : 'None (this is the first search)'}
@@ -244,7 +244,7 @@ Output ONLY a JSON object:
         console.log(`📊 Applying verse evaluations to ${analysis.verseEvaluations.length} verses`);
         
         updatedSearchResults = searchResults.map(result => {
-          const evaluation = analysis.verseEvaluations.find((e: { id: string; importance?: string; isFiltered?: boolean }) => e.id === result.id);
+          const evaluation = analysis.verseEvaluations.find((e: { reference: string; importance?: string; isFiltered?: boolean }) => e.reference === result.bookContext);
           if (evaluation) {
             return {
               ...result,

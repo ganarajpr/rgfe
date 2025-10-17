@@ -168,7 +168,7 @@ export function CitationGroup({ verses, title, importance }: CitationGroupProps)
       <div className="space-y-2">
         {verses.map((verse) => (
           <CitationVerse 
-            key={verse.id} 
+            key={verse.bookContext || verse.title} 
             verse={verse} 
             importance={importance}
           />
