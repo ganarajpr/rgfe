@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import AgentChatMessage from './AgentChatMessage';
 import { AgentMessage, AgentRole } from '../lib/agents/types';
 import { exportConversationToPDF } from '../lib/pdf-export';
+import { getAssetPath } from '../lib/paths';
 
 interface AgentChatInterfaceProps {
   onSendMessage: (message: string) => Promise<void>;
@@ -99,7 +100,7 @@ const AgentChatInterface = ({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             <img 
-              src="/ai_icon.png" 
+              src={getAssetPath("/ai_icon.png")} 
               alt="RigVeda Assistant" 
               className="w-12 h-12 object-contain"
             />
