@@ -13,12 +13,15 @@ The search corpus contains verses from the RigVeda, the oldest of the four Vedas
 - Famous hymns: Nasadiya Sukta (10.129 - creation), Purusha Sukta (10.90), Gayatri Mantra (3.62.10)
 - Reference format: Mandala.Hymn.Verse (e.g., 10.129.1)
 
-Your role is to GENERATE COMPREHENSIVE ANSWERS that synthesize the discovered verses:
-- Create a natural, flowing answer that addresses the user's question
-- Use the discovered verses as evidence and examples within your answer
+Your role is to SYNTHESIZE INSIGHTS and CREATE INFORMED ANSWERS:
+- ANALYZE the verses to extract meaningful insights and patterns
+- SYNTHESIZE information across multiple verses to form a coherent narrative
+- EXPLAIN the significance and context of what the verses reveal
+- CONNECT verses thematically to build a comprehensive answer
+- INTERPRET the verses to directly address the user's question
+- DO NOT simply repeat translations - provide informed analysis and synthesis
+- Create a natural, flowing answer that demonstrates understanding
 - Write in a scholarly but accessible tone
-- Integrate verses naturally into your explanation
-- Use ONLY the information from the provided RigVeda verses
 
 CRITICAL FORMATTING STRUCTURE - FOLLOW EXACTLY:
 
@@ -80,25 +83,17 @@ export class GeneratorAgent {
   }
 
   /**
-   * Generate final answer based on search results
-   * Analysis is now handled by AnalyzerAgent
+   * Generate final answer based on user query and translated verses
+   * Note: This returns a placeholder - actual generation happens via streamAnswer
    */
-  async generate(): Promise<AgentResponse> {
-    // Generate final answer
-    return await this.generateFinalAnswer();
-  }
-
-
-  /**
-   * Generate the final comprehensive answer
-   */
-  private async generateFinalAnswer(): Promise<AgentResponse> {
-    // Note: This method prepares the response but doesn't actually generate it.
-    // The actual streaming happens in streamAnswer method.
+  async generate(userQuery: string, translatedVerses: SearchResult[]): Promise<AgentResponse> {
+    // Store for potential use
+    // The actual answer generation is done via streamAnswer which is called separately
+    // This method exists to maintain compatibility with the orchestrator's expected interface
     return {
       content: '', // Will be populated by streaming in streamAnswer
       isComplete: true,
-      statusMessage: 'Generating answer...',
+      statusMessage: `Generating answer for query with ${translatedVerses.length} verses...`,
     };
   }
 
@@ -116,12 +111,18 @@ export class GeneratorAgent {
       return;
     }
 
+    // Apply verse filtering logic: use relevant verses if available, otherwise use all verses
+    const relevantVerses = searchResults.filter(r => !r.isFiltered);
+    const versesToUse = relevantVerses.length > 0 ? relevantVerses : searchResults;
+    
+    console.log(`📝 Generator: Using ${versesToUse.length} verses (${relevantVerses.length} relevant, ${searchResults.length} total)`);
+
     const generationPrompt = `${GENERATOR_SYSTEM_PROMPT}
 
 User Query: ${userQuery}
 
 Available Information from RigVeda (from multiple search queries):
-${searchResults.map((r, i) => `
+${versesToUse.map((r, i) => `
 ${i + 1}. ${r.title} (Source: ${r.source})
    Importance: ${r.importance || 'not assigned'}
    Filtered: ${r.isFiltered ? 'Yes' : 'No'}
@@ -145,16 +146,20 @@ If the search results do not contain sufficient information to answer the questi
 - Do NOT fill in gaps with your own knowledge
 
 If the search results contain sufficient information:
-1. Directly address the user's question using ONLY the provided RigVeda sources
-2. Synthesize information from the RigVeda verses listed above
-3. Cite specific mandalas, suktas, and verse numbers when making claims
-4. Be well-structured and easy to read
-5. Include relevant details from the RigVeda verses provided
-6. ALWAYS use <verse>X.Y.Z</verse> format for verse references
-7. ALWAYS show both Sanskrit text and translation for each verse
-8. Group verses by importance level (high, medium, low)
-9. Be concise and crisp while providing a proper answer based ONLY on the RigVeda sources
-10. Do NOT reference or mention other Sanskrit texts (Upanishads, Puranas, epics, etc.)`;
+1. START with a clear introduction that directly answers the user's question based on synthesis of the verses
+2. ANALYZE the verses to identify key themes, patterns, and insights
+3. EXPLAIN the significance and meaning of the verses in relation to the question
+4. SYNTHESIZE information across multiple verses to build a coherent narrative
+5. CITE specific verses as evidence using <verse>X.Y.Z</verse> format
+6. ALWAYS show both Sanskrit text and translation for each verse you cite
+7. PROVIDE explanatory text before and after each verse citation to explain its relevance
+8. CONNECT verses thematically rather than listing them in isolation
+9. Prioritize high-importance verses, then medium, then low (skip filtered verses)
+10. CONCLUDE with a synthesis that ties together the key insights
+11. DO NOT simply repeat translations - provide informed analysis and interpretation
+12. Do NOT reference or mention other Sanskrit texts (Upanishads, Puranas, epics, etc.)
+
+Remember: Your goal is to SYNTHESIZE and ANALYZE, not just repeat translations.`;
 
     try {
       const result = streamText({

@@ -55,19 +55,24 @@ class EmbeddingService {
 
       // Dynamically import heavy transformers library on client only
       const { AutoTokenizer, AutoModel, env } = await import('@huggingface/transformers');
+      
       // Configure Transformers.js environment
-      env.allowLocalModels = true;
-      env.allowRemoteModels = true;
+      // Models will be downloaded from Hugging Face CDN and cached in browser
+      env.allowRemoteModels = true;  // Enable downloading from Hugging Face
+      env.allowLocalModels = false;  // Disable local file:// paths (only use HF CDN)
+      
+      // Force cache refresh to get the updated model structure
+      env.cacheDir = '.transformers_cache';
 
       console.log('═══════════════════════════════════════════════════════════');
       console.log('🔧 INITIALIZING EMBEDDING MODEL');
       console.log('═══════════════════════════════════════════════════════════');
       console.log(`Model: ${this.config.modelId}`);
+      console.log(`Source: Hugging Face CDN (https://huggingface.co/${this.config.modelId})`);
       console.log(`Target Dimension: ${this.config.dimension}`);
-      console.log(`Quantization: ${this.config.quantization}`);
       console.log('───────────────────────────────────────────────────────────');
       
-      // Report initial progress
+      // Report initial progress (values should be between 0-1)
       if (progressCallback) {
         progressCallback(0, 'Loading tokenizer...');
       }
@@ -78,29 +83,74 @@ class EmbeddingService {
       console.log('✅ Tokenizer loaded');
       
       if (progressCallback) {
-        progressCallback(30, 'Loading model weights...');
+        progressCallback(0.3, 'Loading model weights...');
       }
       
-      // Load the model with quantization
+      // Load the model (updated structure on Hugging Face)
       console.log('📦 Loading model weights...');
-      this.model = await AutoModel.from_pretrained(this.config.modelId, {
-        dtype: this.config.quantization,
-      });
+      const modelOptions: Record<string, unknown> = {};
+      if (this.config.quantization) {
+        modelOptions.dtype = this.config.quantization;
+        console.log(`   Using quantization: ${this.config.quantization}`);
+      }
+      this.model = await AutoModel.from_pretrained(this.config.modelId, modelOptions);
       console.log('✅ Model weights loaded');
       
       if (progressCallback) {
-        progressCallback(100, 'Model ready');
+        progressCallback(1.0, 'Model ready');
       }
 
       this.isInitialized = true;
       console.log('═══════════════════════════════════════════════════════════');
       console.log('✅ EMBEDDING MODEL INITIALIZED SUCCESSFULLY');
+      console.log('   Model structure has been updated on Hugging Face');
       console.log('═══════════════════════════════════════════════════════════\n');
     } catch (error) {
       console.error('❌ Failed to initialize embedding model:', error);
       this.initializationPromise = null;
       throw error;
     }
+  }
+
+  /**
+   * Enhance query text to be more descriptive for better embedding matching
+   * The embedding model was trained on longer, descriptive queries like:
+   * "Description of Agni as the chief Hotṛ priest."
+   * So we should expand short queries into longer, descriptive ones
+   */
+  private enhanceQueryForEmbedding(text: string): string {
+    // If the query is already long and descriptive (more than 30 chars), use it as-is
+    if (text.length > 30) {
+      return text;
+    }
+
+    // For short queries, expand them into more descriptive formats
+    // Match the training data format: "Description of [topic]..."
+    const trimmed = text.trim();
+    
+    // Check if it's already in a descriptive format
+    if (trimmed.toLowerCase().startsWith('description of') ||
+        trimmed.toLowerCase().startsWith('verse about') ||
+        trimmed.toLowerCase().startsWith('hymn') ||
+        trimmed.toLowerCase().startsWith('passage') ||
+        trimmed.toLowerCase().startsWith('text') ||
+        trimmed.toLowerCase().startsWith('verse calling') ||
+        trimmed.toLowerCase().startsWith('verse describing')) {
+      return text;
+    }
+
+    // Expand short queries to descriptive format
+    // Example: "Agni" -> "Description of Agni as a deity in RigVeda"
+    // Example: "fire sacrifice" -> "Description of fire sacrifice ritual in RigVeda"
+    // Example: "10.129" -> "Verses from hymn 10.129 in RigVeda"
+    
+    // Check if it's a verse reference (contains numbers and dots)
+    if (/^\d+\.\d+/.test(trimmed)) {
+      return `Verses from hymn ${trimmed} in RigVeda`;
+    }
+    
+    // For other short queries, expand them descriptively
+    return `Description of ${trimmed} in RigVeda`;
   }
 
   /**
@@ -118,17 +168,21 @@ class EmbeddingService {
     }
 
     try {
+      // Enhance the query to be more descriptive (match training data format)
+      const enhancedQuery = this.enhanceQueryForEmbedding(text);
+      
       console.log('═══════════════════════════════════════════════════════════');
       console.log('🧮 GENERATING EMBEDDING');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log(`Query: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`);
+      console.log(`Original Query: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`);
+      console.log(`Enhanced Query: "${enhancedQuery.substring(0, 100)}${enhancedQuery.length > 100 ? '...' : ''}"`);
       console.log('───────────────────────────────────────────────────────────');
       
       const startTime = performance.now();
       
       // Add the required prefix for query embeddings
       // EmbeddingGemma requires specific prefixes for optimal performance
-      const prefixedQuery = "task: search result | query: " + text;
+      const prefixedQuery = "task: search result | query: " + enhancedQuery;
       
       console.log('🔤 Tokenizing input...');
       
@@ -196,8 +250,11 @@ class EmbeddingService {
       
       const startTime = performance.now();
       
+      // Enhance queries to be more descriptive (match training data format)
+      const enhancedTexts = texts.map(text => this.enhanceQueryForEmbedding(text));
+      
       // Add the required prefix for query embeddings
-      const prefixedTexts = texts.map(text => "task: search result | query: " + text);
+      const prefixedTexts = enhancedTexts.map(text => "task: search result | query: " + text);
       
       console.log('🔤 Tokenizing inputs...');
       
@@ -310,19 +367,24 @@ export function getEmbeddingService(config?: EmbeddingServiceConfig): EmbeddingS
 /**
  * Default embedding model configuration
  * 
- * Using EmbeddingGemma (300M parameters) from Google DeepMind
+ * Using fine-tuned RigVeda EmbeddingGemma ONNX model
  * - Model runs entirely in the browser using Transformers.js
- * - Supports 768 dimensions (full) but can be truncated to 512, 256, or 128
+ * - Fine-tuned on RigVeda Sanskrit corpus for improved semantic search
+ * - Outputs 768 dimensions (full) but truncated to 512d to match binary index
  * - Uses Matryoshka Representation Learning (MRL) for efficient truncation
- * - Multilingual support (100+ languages)
- * - State-of-the-art performance for its size
+ * - Optimized specifically for RigVeda Sanskrit text embeddings
+ * - Quantized versions available (q4, q8, fp16, fp32)
  * 
- * Model: https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX
+ * Model: https://huggingface.co/Ganaraj/rgveda-gemma-onnx
+ * Base Model: google/embeddinggemma-300m
+ * Fine-tuned: 51,368 Sanskrit samples from RigVeda corpus
+ * Training: Sentence Transformers with MultipleNegativesRankingLoss
+ * Accuracy: 95.53% on test set (cosine similarity)
  */
 export const DEFAULT_EMBEDDING_CONFIG: EmbeddingServiceConfig = {
-  modelId: 'onnx-community/embeddinggemma-300m-ONNX',
+  modelId: 'Ganaraj/rgveda-gemma-onnx',
   dimension: 512, // Truncate to 512d (matches the binary index)
-  quantization: 'q4', // Use q4 quantization for faster loading and inference
+  quantization: 'q8', // Use q8 quantization (~150MB, better quality than q4)
 };
 
 export { EmbeddingService };

@@ -29,3 +29,4 @@
 - Update relevant documentation when making significant changes
 - Keep README files current
 - Document any new features or breaking changes
+- All new documentation should go to the docs folder

@@ -56,6 +56,7 @@ export interface SearchResult {
   bookContext?: string; // e.g., "7.50.1" - the specific verse reference
   importance?: ImportanceLevel; // Assigned by analyzer
   isFiltered?: boolean; // Marked as filtered by analyzer
+  analysisReasoning?: string; // Analyzer's reasoning for importance/filtering decision
 }
 
 export interface AgentContext {

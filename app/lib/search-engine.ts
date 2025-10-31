@@ -276,17 +276,24 @@ class SearchEngine {
 
       console.log(`   - Search prefix: "${searchPrefix}"`);
 
+      // For prefix search on bookContext, search for the exact prefix with trailing dot
+      // Test results show that searching for "10.129." with tolerance 0 works best
+      // We use a higher limit to ensure we capture all matches, then filter by prefix
       const results = await search(this.db, {
         term: searchPrefix,
         properties: ['bookContext'],
-        limit,
-        tolerance: 0, // Exact match for verse references
+        limit: limit * 10, // Get more results to ensure we find all prefix matches
+        tolerance: 0, // Exact match for verse references (tested and confirmed to work)
       });
 
-      // Post-filter results to ensure exact prefix match
-      const filteredResults = results.hits.filter(hit => 
-        (hit.document.bookContext as string).startsWith(searchPrefix)
-      );
+      // Post-filter results to ensure exact prefix match on bookContext
+      // This ensures we only return documents where bookContext starts with our searchPrefix
+      const filteredResults = results.hits.filter(hit => {
+        const context = hit.document.bookContext as string;
+        if (!context) return false;
+        // Match if bookContext starts with the searchPrefix
+        return context.startsWith(searchPrefix);
+      }).slice(0, limit); // Limit after filtering
 
       const searchResults = filteredResults.map((hit) => ({
         id: hit.document.id as string,

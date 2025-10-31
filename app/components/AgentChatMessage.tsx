@@ -22,7 +22,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
       <div className="flex gap-3 py-3 px-4 mx-auto max-w-4xl">
         <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 w-full">
           <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
-          <span className="text-sm text-gray-600 font-medium">{message.content}</span>
+          <span className="text-sm text-gray-600 font-medium italic">{message.content}</span>
         </div>
       </div>
     );
@@ -40,11 +40,11 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              <span className="text-sm font-semibold text-blue-800">
+              <span className="text-sm font-semibold text-blue-800 italic">
                 🔄 Additional Search {iteration}/{maxIterations}
               </span>
               {searchQuery && (
-                <span className="text-xs text-blue-700 font-mono bg-white px-3 py-1 rounded-full border border-blue-300">
+                <span className="text-xs text-blue-700 font-mono bg-white px-3 py-1 rounded-full border border-blue-300 italic">
                   {searchQuery}
                 </span>
               )}
@@ -75,14 +75,14 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
         <div className="flex-1 space-y-4 overflow-hidden">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-blue-500 rounded-full" />
-            <span className="text-sm font-semibold text-blue-800">📜 Found Verses</span>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+            <span className="text-sm font-semibold text-blue-800 italic">📜 Found Verses</span>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full italic">
               {message.timestamp.toLocaleTimeString()}
             </span>
           </div>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm space-y-4">
-            <div className="text-sm text-blue-800 font-medium">
+            <div className="text-sm text-blue-800 font-medium italic">
               {message.content}
             </div>
             
@@ -116,27 +116,27 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
         <div className="flex-1 space-y-4 overflow-hidden">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-green-500 rounded-full" />
-            <span className="text-sm font-semibold text-green-800">
+            <span className="text-sm font-semibold text-green-800 italic">
               🔍 Search Iteration {iteration + 1}/{maxIterations + 1}
             </span>
             {toolCall && (
-              <span className="text-xs text-green-600 font-mono bg-green-100 px-3 py-1 rounded-full border border-green-300">
+              <span className="text-xs text-green-600 font-mono bg-green-100 px-3 py-1 rounded-full border border-green-300 italic">
                 🔧 {toolCall.name}({toolCall.parameters.userQuery}{toolCall.parameters.searchSuggestion ? `, ${toolCall.parameters.searchSuggestion}` : ''})
               </span>
             )}
             {searchTerm && (
-              <span className="text-xs text-green-700 font-mono bg-white px-3 py-1 rounded-full border border-green-300">
+              <span className="text-xs text-green-700 font-mono bg-white px-3 py-1 rounded-full border border-green-300 italic">
                 {searchTerm}
               </span>
             )}
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full italic">
               {message.timestamp.toLocaleTimeString()}
             </span>
           </div>
           
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-green-800 font-semibold">
+              <div className="text-sm text-green-800 font-semibold italic">
                 Found {searchResults.length} verses
               </div>
             </div>
@@ -180,18 +180,29 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
   }
 
   // Assistant messages - Use FinalAnswerDisplay for structured verse rendering
+  const isFinalAnswer = message.metadata?.isComplete;
+  
   return (
     <div className="flex gap-4 py-6 px-4">
       <div className="flex-1 space-y-3 overflow-hidden">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 bg-blue-500 rounded-full" />
           <span className="text-sm font-semibold text-gray-600">Assistant</span>
+          {isFinalAnswer && (
+            <span className="text-sm font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full border border-amber-300">
+              📝 Final Answer
+            </span>
+          )}
           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
             {message.timestamp.toLocaleTimeString()}
           </span>
         </div>
         
-        <div className="bg-white border border-gray-200 px-6 py-5 rounded-lg shadow-sm text-gray-700">
+        <div className={`px-6 py-5 rounded-lg shadow-md text-gray-700 ${
+          isFinalAnswer 
+            ? 'bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-300 ring-2 ring-amber-200 ring-opacity-50' 
+            : 'bg-white border border-gray-200 shadow-sm'
+        }`}>
           {isStreaming && !message.content && (
             <div className="flex items-center gap-2 text-gray-400">
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />

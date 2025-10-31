@@ -7,7 +7,7 @@ import { SearchResult } from './types';
 // Initialize search tool with proper configuration
 const initializeSearchTool = () => {
   return getSearchTool({
-    binaryFilePath: '/smrithi-rgveda-embgemma-512d.bin',
+    binaryFilePath: '/smrthi-rgveda-test-512d.bin',
     defaultLimit: 5,
     minScore: 0, // Use 0 like cli-search.js for cosine similarity
     useEmbeddings: true, // Enable semantic vector search with EmbeddingGemma

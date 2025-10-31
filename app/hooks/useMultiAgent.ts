@@ -260,9 +260,20 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
         // Add initial status message
         addStatusMessage('Selecting appropriate search tool...', 'searcher');
 
-        // For now, default to vector search - in a full implementation, 
-        // this would use an LLM to select the appropriate tool
-        const searchResponse = await searcherRef.current.vector_search(userQuery);
+        // Detect if this is a book context query (numeric format like "10.129", "1.1.1")
+        const numericPattern = /^\d+\.\d+(\.\d+)?$/;
+        const bookContextMatch = userQuery.match(/(\d+\.\d+(?:\.\d+)?)/);
+        
+        let searchResponse: AgentResponse;
+        if (numericPattern.test(userQuery.trim()) || bookContextMatch) {
+          // This is a book context query - use book context search
+          const bookContext = numericPattern.test(userQuery.trim()) ? userQuery.trim() : bookContextMatch![1];
+          console.log(`🎯 Detected book context query: "${bookContext}"`);
+          searchResponse = await searcherRef.current.bookContext_search(userQuery, bookContext);
+        } else {
+          // Regular semantic search
+          searchResponse = await searcherRef.current.vector_search(userQuery);
+        }
         currentSearchResultsRef.current = searchResponse.searchResults || [];
         
         // Track the initial search term (extract from user query)
@@ -311,11 +322,31 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     }
   } catch (error) {
     console.error('Multi-agent error:', error);
-    addMessage(
-      'I apologize, but I encountered an error processing your request. Please try again.',
-      'assistant',
-      'assistant'
-    );
+    
+    // Check if this is an embedding model initialization error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isEmbeddingError = errorMessage.includes('embedding') || 
+                            errorMessage.includes('config.json') || 
+                            errorMessage.includes('Could not locate file');
+    
+    if (isEmbeddingError) {
+      addMessage(
+        '❌ Failed to initialize the embedding model. The system requires the embedding model to perform semantic search. Please check:\n\n' +
+        '1. Your internet connection (the model needs to download from Hugging Face)\n' +
+        '2. The model repository exists and has all required files (config.json, model.onnx)\n' +
+        '3. The model ID is correct in the configuration\n\n' +
+        `Error details: ${errorMessage}`,
+        'assistant',
+        'assistant'
+      );
+    } else {
+      addMessage(
+        'I apologize, but I encountered an error processing your request. Please try again.\n\n' +
+        `Error: ${errorMessage}`,
+        'assistant',
+        'assistant'
+      );
+    }
   } finally {
     setCurrentAgent(null);
     setIsProcessing(false);
@@ -346,8 +377,14 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
     console.log('🔍 ANALYZER REQUEST');
     console.log('═══════════════════════════════════════════════════════════');
     console.log('Query:', userQuery);
-    console.log('Search Results:', searchResults.length);
+    console.log('Total verses to analyze:', searchResults.length);
     console.log('Iteration:', searchIterationRef.current);
+    console.log('Previous search terms:', searchTermsHistoryRef.current.join(', ') || 'None');
+    console.log('───────────────────────────────────────────────────────────');
+    console.log('Verses being analyzed:');
+    searchResults.forEach((result, idx) => {
+      console.log(`  ${idx + 1}. ${result.bookContext || 'Unknown'} - ${result.title || 'No title'}`);
+    });
     console.log('───────────────────────────────────────────────────────────');
 
     const analyzerResponse = await analyzerRef.current.analyze(
@@ -469,7 +506,10 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
 
     // Analysis complete, proceed to translator
     if (analyzerResponse.isComplete) {
-      await processTranslatorFlow(userQuery, searchResults, signal);
+      // Only pass non-filtered verses to translator
+      const filteredVerses = searchResults.filter(r => !r.isFiltered);
+      console.log(`📤 Passing ${filteredVerses.length} non-filtered verses to translator (filtered out ${searchResults.length - filteredVerses.length} irrelevant verses)`);
+      await processTranslatorFlow(userQuery, filteredVerses, signal);
     }
   };
 
@@ -488,9 +528,16 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       throw new Error('Translator agent not initialized');
     }
 
+    // Safety check: Only process non-filtered verses
+    // Note: searchResults should already be filtered, but ensure no filtered verses slip through
+    const nonFilteredVerses = searchResults.filter(r => !r.isFiltered);
+    if (nonFilteredVerses.length !== searchResults.length) {
+      console.warn(`⚠️ Warning: ${searchResults.length - nonFilteredVerses.length} filtered verses were passed to translator. Filtering them out.`);
+    }
+
     // Filter out already-processed verses (those with translations)
     // Only send new verses that haven't been translated yet
-    const newVersesToTranslate = searchResults.filter(r => !r.translation);
+    const newVersesToTranslate = nonFilteredVerses.filter(r => !r.translation);
     
     // If there are no new verses to translate, skip translation
     if (newVersesToTranslate.length === 0) {
@@ -499,14 +546,15 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
       return;
     }
 
-    console.log(`🔄 Translator: Processing ${newVersesToTranslate.length} new verses (${searchResults.length - newVersesToTranslate.length} already processed)`);
+    console.log(`🔄 Translator: Processing ${newVersesToTranslate.length} new verses (${nonFilteredVerses.length - newVersesToTranslate.length} already processed)`);
 
     // Log translator request
     console.log('═══════════════════════════════════════════════════════════');
     console.log('🔄 TRANSLATOR REQUEST');
     console.log('═══════════════════════════════════════════════════════════');
     console.log('Query:', userQuery);
-    console.log('Search Results:', searchResults.length);
+    console.log('Non-filtered verses:', nonFilteredVerses.length);
+    console.log('New verses to translate:', newVersesToTranslate.length);
     console.log('───────────────────────────────────────────────────────────');
 
     const translatorResponse = await translatorRef.current.translateAndEvaluate(

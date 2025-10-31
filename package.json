@@ -13,7 +13,8 @@
     "clean": "rm -rf .next && rm -rf out",
     "dev:clean": "npm run clean && npm run dev",
     "build:clean": "npm run clean && npm run build",
-    "search": "node cli-search.js"
+    "search": "node cli-search.js",
+    "test:book-context": "node test-book-context-search.js"
   },
   "keywords": [
     "nextjs",

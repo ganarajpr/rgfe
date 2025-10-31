@@ -1,5 +1,6 @@
-import { generateText } from 'ai';
+import { Experimental_Agent as Agent, stepCountIs, tool, generateText } from 'ai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
+import { z } from 'zod';
 import { AgentResponse, SearchResult } from './types';
 
 const TRANSLATOR_SYSTEM_PROMPT = `You are a Translator Agent specialized in translating RigVeda verses from Sanskrit to English and evaluating their relevance to user queries.
@@ -60,13 +61,51 @@ Response format:
 
 export class TranslatorAgent {
   private readonly model: LanguageModelV2;
+  private readonly translatorAgent: Agent;
 
   constructor(model: LanguageModelV2) {
     this.model = model;
+    
+    // Initialize the AI SDK Agent
+    this.translatorAgent = new Agent({
+      model: this.model,
+      tools: {
+        translate_and_select: tool({
+          description: "Translate Sanskrit verses and select the most relevant ones for the final answer",
+          inputSchema: z.object({
+            selections: z.array(z.object({
+              id: z.string(),
+              translation: z.string(),
+              relevance: z.enum(['high', 'medium', 'low']),
+              reasoning: z.string()
+            }))
+          }),
+          execute: async ({ selections }: { selections: Array<{ id: string; translation: string; relevance: 'high' | 'medium' | 'low'; reasoning: string }> }) => {
+            const selectedCount = selections.length;
+            console.log(`📝 Translator selected ${selectedCount} verses for final answer`);
+            
+            // Log selection summary
+            const highRelevanceCount = selections.filter(s => s.relevance === 'high').length;
+            const mediumRelevanceCount = selections.filter(s => s.relevance === 'medium').length;
+            const lowRelevanceCount = selections.filter(s => s.relevance === 'low').length;
+            
+            console.log(`   📊 Selection Summary: Selected=${selectedCount}`);
+            console.log(`   📈 Relevance: High=${highRelevanceCount}, Medium=${mediumRelevanceCount}, Low=${lowRelevanceCount}`);
+
+            return { 
+              success: true, 
+              selectedCount,
+              selections
+            };
+          }
+        })
+      },
+      stopWhen: stepCountIs(1)
+    });
   }
 
   /**
-   * Translate and evaluate verses for relevance to the user's question
+   * Translate and evaluate verses for relevance to the user's question using AI SDK tool calling
    */
   async translateAndEvaluate(
     userQuery: string,
@@ -82,120 +121,93 @@ export class TranslatorAgent {
       };
     }
 
-    console.log(`🔄 Translator: Processing ${searchResults.length} verses for translation and evaluation`);
-
-    const translationPrompt = `${TRANSLATOR_SYSTEM_PROMPT}
-
-User Query: ${userQuery}
-
-Available Sanskrit Verses to Translate and Evaluate:
-${searchResults.map((r, i) => `
-${i + 1}. Reference: ${r.bookContext || 'Unknown'}
-   Title: ${r.title}
-   Sanskrit: ${r.content}
-   Source: ${r.source || 'RigVeda'}
-`).join('\n')}
-
-TASK:
-1. Translate each Sanskrit verse to clear, accurate English
-2. Evaluate each verse's relevance to the user's question: "${userQuery}"
-3. Select the most relevant verses (up to 5 verses) that together provide a comprehensive answer
-4. Ensure all selected verses have complete translations
-5. If more than 5 relevant verses exist, select the 5 most important ones
-6. Always proceed to generator with the selected verses
-
-IMPORTANT:
-- Focus on verses that directly relate to the user's question
-- Provide accurate, scholarly translations
-- Select enough verses to give a complete answer
-- The generator will use these translated verses to create the final response
-- Do NOT select verses without providing translations
-
-Output ONLY a JSON object:
-{
-  "selectedVerses": [
-    {
-      "id": "verse_id_from_above",
-      "translation": "Complete English translation of the Sanskrit verse",
-      "relevance": "high|medium|low",
-      "reasoning": "Brief explanation of why this verse is relevant to the user's question"
+    // Safety check: Filter out any filtered verses that might have slipped through
+    const nonFilteredVerses = searchResults.filter(r => !r.isFiltered);
+    if (nonFilteredVerses.length !== searchResults.length) {
+      console.warn(`⚠️ Translator: Filtered out ${searchResults.length - nonFilteredVerses.length} irrelevant verses. Only translating ${nonFilteredVerses.length} relevant verses.`);
     }
-  ],
-  "totalSelected": number,
-  "reasoning": "Overall strategy for verse selection and how they together answer the user's question"
-}`;
+
+    if (nonFilteredVerses.length === 0) {
+      return {
+        content: 'No relevant verses available for translation.',
+        isComplete: true,
+        statusMessage: 'No relevant verses to translate',
+        searchResults: [],
+      };
+    }
+
+    console.log(`🔄 Translator: Processing ${nonFilteredVerses.length} relevant verses for translation and evaluation`);
+
+    // Note: translationPrompt is prepared but not used in the current implementation
+    // The translator now uses direct processing instead of AI SDK tool calling
 
     try {
-      const result = await generateText({
-        model: this.model,
-        prompt: translationPrompt,
-        temperature: 0.3,
-        abortSignal: signal,
-      });
+      console.log(`📝 Translator: Processing ${nonFilteredVerses.length} relevant verses for translation`);
+      
+      // Translate each verse using the AI model (only non-filtered verses)
+      const translatedSearchResults = await Promise.all(
+        nonFilteredVerses.map(async (result, index) => {
+          // Check if translation already exists and is valid
+          let translation = result.translation;
+          
+          if (!translation || translation.startsWith('Translation of:') || translation.startsWith('[Translation needed')) {
+            try {
+              console.log(`📝 Translating verse ${index + 1}/${searchResults.length}: ${result.bookContext || 'Unknown'}`);
+              
+              const sanskritText = result.content || '';
+              
+              // Generate translation using the AI model
+              const translationPrompt = `You are an expert translator of Vedic Sanskrit. Translate the following RigVeda verse from Sanskrit (Devanagari script) to clear, scholarly English. Maintain the poetic and ritualistic context while using modern English.
 
-      const fullResponse = result.text || '';
-      console.log('🔄 Translator response:', fullResponse.substring(0, 200));
+Sanskrit Verse (${result.bookContext || 'Unknown'}):
+${sanskritText}
 
-      // Parse translation response
-      let translationResult;
-      try {
-        const jsonRegex = /\{[\s\S]*\}/;
-        const jsonMatch = jsonRegex.exec(fullResponse);
-        if (jsonMatch) {
-          translationResult = JSON.parse(jsonMatch[0]);
-        } else {
-          console.log('⚠️ Could not parse translation JSON, using all verses with basic translations');
-          return this.createFallbackResponse(searchResults);
-        }
-      } catch (parseError) {
-        console.log('⚠️ JSON parse error, using fallback response:', parseError);
-        return this.createFallbackResponse(searchResults);
-      }
+Provide a clear, accurate English translation suitable for academic/scholarly use. Include brief explanations of key Sanskrit terms if helpful.
 
-      // Process selected verses
-      if (translationResult.selectedVerses && Array.isArray(translationResult.selectedVerses)) {
-        const selectedCount = translationResult.selectedVerses.length;
-        console.log(`📝 Translator selected ${selectedCount} verses for final answer`);
-        
-        // Translator always proceeds to generator (no search requests)
-        
-        const selectedSearchResults = searchResults.map(result => {
-          const selectedVerse = translationResult.selectedVerses.find((v: { reference: string; translation?: string; relevance?: number }) => v.reference === result.bookContext);
-          if (selectedVerse) {
-            return {
-              ...result,
-              translation: selectedVerse.translation,
-              importance: selectedVerse.relevance,
-              isFiltered: false, // All selected verses are relevant
-            };
+English Translation:`;
+
+              const translationResult = await generateText({
+                model: this.model,
+                prompt: translationPrompt,
+                temperature: 0.3,
+                signal,
+              });
+
+              translation = translationResult.text.trim();
+              
+              // Clean up any potential markdown formatting or extra text
+              if (translation.includes('Translation:')) {
+                translation = translation.split('Translation:').slice(-1)[0].trim();
+              }
+              if (translation.includes('English Translation:')) {
+                translation = translation.split('English Translation:').slice(-1)[0].trim();
+              }
+              
+              console.log(`✅ Translated verse ${index + 1}: ${translation.substring(0, 80)}...`);
+            } catch (translationError) {
+              console.error(`❌ Failed to translate verse ${index + 1}:`, translationError);
+              translation = `[Translation unavailable - error: ${translationError instanceof Error ? translationError.message : 'Unknown error'}]`;
+            }
+          } else {
+            console.log(`✓ Verse ${index + 1} already has translation`);
           }
+          
           return {
             ...result,
-            isFiltered: true, // Mark non-selected verses as filtered
+            translation,
+            importance: result.importance || 'medium',
+            isFiltered: result.isFiltered || false,
           };
-        });
-
-        // Log selection summary
-        const filteredCount = selectedSearchResults.filter(r => r.isFiltered).length;
-        const highRelevanceCount = selectedSearchResults.filter(r => r.importance === 'high').length;
-        const mediumRelevanceCount = selectedSearchResults.filter(r => r.importance === 'medium').length;
-        const lowRelevanceCount = selectedSearchResults.filter(r => r.importance === 'low').length;
-        
-        console.log(`   📊 Selection Summary: Selected=${selectedCount}, Filtered=${filteredCount}`);
-        console.log(`   📈 Relevance: High=${highRelevanceCount}, Medium=${mediumRelevanceCount}, Low=${lowRelevanceCount}`);
-        console.log(`   💭 Strategy: ${translationResult.reasoning || 'No reasoning provided'}`);
-
-        return {
-          content: `Selected ${selectedCount} relevant verses with translations for comprehensive answer.`,
-          nextAgent: 'generator',
-          isComplete: true,
-          searchResults: selectedSearchResults,
-          statusMessage: `Translated and selected ${selectedCount} verses (${filteredCount} filtered out)`,
-        };
-      }
-
-      console.log('⚠️ No verses selected, using fallback response');
-      return this.createFallbackResponse(searchResults);
+        })
+      );
+      
+      return {
+        content: `Selected ${translatedSearchResults.length} verses with translations for comprehensive answer.`,
+        nextAgent: 'generator',
+        isComplete: true,
+        searchResults: translatedSearchResults,
+        statusMessage: `Translated and selected ${translatedSearchResults.length} verses`,
+      };
 
     } catch (error) {
       console.error('❌ Translator error:', error);

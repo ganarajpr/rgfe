@@ -54,15 +54,12 @@ export class SearchTool {
 
       // Initialize embedding service if using embeddings (client-only)
       if (this.config.useEmbeddings && DEFAULT_EMBEDDING_CONFIG.modelId && typeof window !== 'undefined') {
-        try {
-          const embeddingService = getEmbeddingService(DEFAULT_EMBEDDING_CONFIG);
-          await embeddingService.initialize(progressCallback);
-          this.embeddingServiceInitialized = true;
-          console.log('✅ Embedding service initialized');
-        } catch (error) {
-          console.warn('⚠️ Failed to initialize embedding service, will use text search:', error);
-          this.embeddingServiceInitialized = false;
-        }
+        // CRITICAL: Do not catch errors here - let them propagate up
+        // The agentic system should exit immediately if embedding initialization fails
+        const embeddingService = getEmbeddingService(DEFAULT_EMBEDDING_CONFIG);
+        await embeddingService.initialize(progressCallback);
+        this.embeddingServiceInitialized = true;
+        console.log('✅ Embedding service initialized');
       } else {
         console.log('ℹ️ Embedding service unavailable (server or disabled), using text search only');
         this.embeddingServiceInitialized = false;

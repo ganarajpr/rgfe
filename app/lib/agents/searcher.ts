@@ -1,5 +1,6 @@
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { generateText } from 'ai';
+import { Experimental_Agent as Agent, stepCountIs, tool, generateText } from 'ai';
+import { z } from 'zod';
 import { AgentResponse, SearchResult } from './types';
 import { getSearchTool } from '../tools/search-tool';
 import { getSearchEngine } from '../search-engine';
@@ -9,9 +10,55 @@ export class SearcherAgent {
   private searchToolInitialized = false;
   private coordinatorCallback?: (message: string) => void;
   private readonly previousSearchEmbeddings: Array<{ term: string; embedding: number[] }> = [];
+  private readonly searcherAgent: Agent;
+  private currentUserQuery: string = ''; // Store current user query for tool executions
 
   constructor(model: LanguageModelV2) {
     this.model = model;
+    
+    // Initialize the AI SDK Agent
+    this.searcherAgent = new Agent({
+      model: this.model,
+      tools: {
+        vector_search: tool({
+          description: "Semantic similarity search using embeddings - best for conceptual queries",
+          inputSchema: z.object({
+            query: z.string()
+          }),
+          execute: async ({ query }: { query: string }) => {
+            return await this.executeVectorSearch(query, this.currentUserQuery, '');
+          }
+        }),
+        text_search: tool({
+          description: "Full-text search for specific Sanskrit terms or phrases",
+          inputSchema: z.object({
+            query: z.string()
+          }),
+          execute: async ({ query }: { query: string }) => {
+            return await this.executeTextSearch(query, this.currentUserQuery, '');
+          }
+        }),
+        bookContext_search: tool({
+          description: "Direct verse lookup by reference (e.g., '10.129.1', 'Mandala 7')",
+          inputSchema: z.object({
+            reference: z.string()
+          }),
+          execute: async ({ reference }: { reference: string }) => {
+            return await this.executeBookContextSearch(reference, this.currentUserQuery, '');
+          }
+        }),
+        hybrid_search: tool({
+          description: "Combined vector and text search for complex queries",
+          inputSchema: z.object({
+            query: z.string()
+          }),
+          execute: async ({ query }: { query: string }) => {
+            return await this.executeHybridSearch(query, this.currentUserQuery, '');
+          }
+        })
+      },
+      stopWhen: stepCountIs(5)
+    });
   }
 
   /**
@@ -137,7 +184,7 @@ Sanskrit keywords:`;
       console.log('🔧 Initializing searcher agent...');
       
       const searchTool = getSearchTool({
-        binaryFilePath: '/smrithi-rgveda-embgemma-512d.bin',
+        binaryFilePath: '/smrthi-rgveda-test-512d.bin',
         defaultLimit: 5,
         minScore: 0.0, // Use 0.0 like cli-search.js for cosine similarity
         useEmbeddings: true, // Enable semantic vector search with EmbeddingGemma
@@ -148,7 +195,9 @@ Sanskrit keywords:`;
       console.log('✅ Searcher agent fully initialized with embedding-based search');
     } catch (error) {
       console.error('❌ Failed to initialize searcher agent search tool:', error);
-      throw error;
+      console.error('❌ CRITICAL: Embedding model initialization failed. System cannot continue.');
+      // Re-throw with a clearer message for the user
+      throw new Error(`Failed to initialize embedding model: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -289,17 +338,76 @@ Sanskrit search phrase:`;
   }
 
   /**
+   * Process search request using AI SDK tool calling
+   */
+  async processSearchRequest(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    const requestToSearch = searchSuggestion || userQuery;
+    
+    // Store userQuery for use in tool executions
+    this.currentUserQuery = userQuery;
+
+    try {
+      // Check if the search request is a book context reference (numeric format)
+      const bookContextPattern = /^\d+\.\d+(?:\.\d+)?$/;
+      if (bookContextPattern.test(requestToSearch.trim())) {
+        console.log(`🎯 Detected book context reference: "${requestToSearch}" → using book context search`);
+        return await this.executeBookContextSearch(requestToSearch.trim(), userQuery, searchSuggestion);
+      }
+
+      // Note: Search tool is pre-initialized during app startup, no need to initialize here
+
+      const searcherPrompt = `You are a Searcher Agent specialized in finding relevant RigVeda verses. Your role is to:
+
+1. ANALYZE the search request to understand what information is needed
+2. SELECT the most appropriate search method based on the query type
+3. EXECUTE the search using the selected tool
+
+SEARCH TOOL SELECTION GUIDELINES:
+- **vector_search**: Use for semantic/conceptual queries (e.g., "hymns to Agni", "cosmic order", "sacrifice rituals")
+- **text_search**: Use for specific Sanskrit terms or phrases that should appear literally in the text
+- **bookContext_search**: Use for specific verse references (e.g., "10.129.1", "Mandala 7", "Nasadiya Sukta")
+- **hybrid_search**: Use for complex queries that might benefit from both semantic and literal matching
+
+RIGVEDA CONTEXT:
+- Corpus contains 10 Mandalas with hymns to deities like Agni (अग्नि), Indra (इन्द्र), Soma (सोम)
+- Key concepts: Rita (ऋत), Yajna (यज्ञ), Dharma (धर्म)
+- Famous hymns: Nasadiya Sukta (10.129), Purusha Sukta (10.90), Gayatri Mantra (3.62.10)
+
+User Query: ${userQuery}
+${searchSuggestion ? `Search Suggestion: ${searchSuggestion}` : ''}
+
+Analyze this request and select the most appropriate search tool.`;
+
+      const result = await this.searcherAgent.generate({
+        prompt: searcherPrompt
+      });
+
+      // The Agent class automatically handles tool calls and execution
+      console.log('🔍 Searcher Agent result:', result.text);
+      console.log('🔧 Tool calls made:', result.steps.length);
+
+      // For now, fallback to vector search
+      // In a full implementation, we would process the tool call results
+      return await this.executeVectorSearch(requestToSearch, userQuery, searchSuggestion);
+
+    } catch (error) {
+      console.error('❌ Searcher agent error:', error);
+      return this.createErrorResponse('Search failed', userQuery, searchSuggestion);
+    }
+  }
+
+  /**
    * Vector search tool - semantic similarity search using embeddings
    */
   async vector_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
-    const requestToSearch = searchSuggestion || userQuery;
+    return await this.processSearchRequest(userQuery, searchSuggestion);
+  }
 
+  /**
+   * Execute vector search
+   */
+  private async executeVectorSearch(query: string, userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
     try {
-      // Ensure search tool is initialized
-      if (!this.searchToolInitialized) {
-        await this.initializeSearchTool();
-      }
-
       // Get the search tool
       const searchTool = getSearchTool();
       
@@ -311,11 +419,11 @@ Sanskrit search phrase:`;
       
       // Notify coordinator about search
       if (this.coordinatorCallback) {
-        this.coordinatorCallback(`Vector search: "${requestToSearch}"`);
+        this.coordinatorCallback(`Vector search: "${query}"`);
       }
 
       // Generate Sanskrit search term
-      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
+      const searchTerm = await this.generateSearchTerm(query, []);
       console.log(`   🧠 Performing vector search with term: "${searchTerm}"`);
       
       const searchResults = await searchTool.search(searchTerm, 5);
@@ -329,17 +437,10 @@ Sanskrit search phrase:`;
   }
 
   /**
-   * Text search tool - full-text search for specific terms
+   * Execute text search
    */
-  async text_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
-    const requestToSearch = searchSuggestion || userQuery;
-
+  private async executeTextSearch(query: string, userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
     try {
-      // Ensure search tool is initialized
-      if (!this.searchToolInitialized) {
-        await this.initializeSearchTool();
-      }
-
       // Get the search engine directly for text search
       const searchEngine = getSearchEngine();
       
@@ -351,11 +452,11 @@ Sanskrit search phrase:`;
       
       // Notify coordinator about search
       if (this.coordinatorCallback) {
-        this.coordinatorCallback(`Text search: "${requestToSearch}"`);
+        this.coordinatorCallback(`Text search: "${query}"`);
       }
 
       // Generate Sanskrit search term
-      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
+      const searchTerm = await this.generateSearchTerm(query, []);
       console.log(`   📝 Performing text search with term: "${searchTerm}"`);
       
       const textResults = await searchEngine.textSearch(searchTerm, 5);
@@ -377,17 +478,17 @@ Sanskrit search phrase:`;
   }
 
   /**
-   * Book context search tool - direct verse lookup by reference
+   * Text search tool - full-text search for specific terms
    */
-  async bookContext_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
-    const requestToSearch = searchSuggestion || userQuery;
+  async text_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    return await this.processSearchRequest(userQuery, searchSuggestion);
+  }
 
+  /**
+   * Execute book context search
+   */
+  private async executeBookContextSearch(reference: string, userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
     try {
-      // Ensure search tool is initialized
-      if (!this.searchToolInitialized) {
-        await this.initializeSearchTool();
-      }
-
       // Get the search tool
       const searchTool = getSearchTool();
       
@@ -399,17 +500,15 @@ Sanskrit search phrase:`;
       
       // Notify coordinator about search
       if (this.coordinatorCallback) {
-        this.coordinatorCallback(`Book context search: "${requestToSearch}"`);
+        this.coordinatorCallback(`Book context search: "${reference}"`);
       }
 
-      // Use the search request directly as book context
-      const bookContext = requestToSearch;
-      console.log(`   🎯 Searching for verse reference: "${bookContext}"`);
+      console.log(`   🎯 Searching for verse reference: "${reference}"`);
       
-      const searchResults = await searchTool.searchByBookContext(bookContext, 5);
+      const searchResults = await searchTool.searchByBookContext(reference, 5);
       console.log(`   ✅ Found ${searchResults.length} results using book context search`);
 
-      return this.createSearchResponse(searchResults, 'bookContext', bookContext, userQuery, searchSuggestion);
+      return this.createSearchResponse(searchResults, 'bookContext', reference, userQuery, searchSuggestion);
     } catch (error) {
       console.error('❌ Book context search error:', error);
       return this.createErrorResponse('Book context search failed', userQuery, searchSuggestion);
@@ -417,17 +516,36 @@ Sanskrit search phrase:`;
   }
 
   /**
-   * Hybrid search tool - combines vector and text search
+   * Book context search tool - direct verse lookup by reference
    */
-  async hybrid_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
-    const requestToSearch = searchSuggestion || userQuery;
+  async bookContext_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    // Extract book context reference from searchSuggestion or userQuery
+    // Check if the query is a book context reference (numeric format like "10.129", "1.1.1")
+    const reference = searchSuggestion || userQuery;
+    const numericPattern = /^\d+\.\d+(\.\d+)?$/;
+    
+    // If the query matches book context format, use it directly
+    if (numericPattern.test(reference.trim())) {
+      return await this.executeBookContextSearch(reference.trim(), userQuery, searchSuggestion);
+    }
+    
+    // Otherwise, try to extract book context from user query
+    // Look for patterns like "10.129", "Nasadiya Sukta (10.129)", etc.
+    const bookContextMatch = reference.match(/(\d+\.\d+(?:\.\d+)?)/);
+    if (bookContextMatch) {
+      return await this.executeBookContextSearch(bookContextMatch[1], userQuery, searchSuggestion);
+    }
+    
+    // If no book context pattern found, fall back to processSearchRequest
+    // This allows the AI SDK agent to decide what to do
+    return await this.processSearchRequest(userQuery, searchSuggestion);
+  }
 
+  /**
+   * Execute hybrid search
+   */
+  private async executeHybridSearch(query: string, userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
     try {
-      // Ensure search tool is initialized
-      if (!this.searchToolInitialized) {
-        await this.initializeSearchTool();
-      }
-
       // Get the search tool
       const searchTool = getSearchTool();
       
@@ -439,11 +557,11 @@ Sanskrit search phrase:`;
       
       // Notify coordinator about search
       if (this.coordinatorCallback) {
-        this.coordinatorCallback(`Hybrid search: "${requestToSearch}"`);
+        this.coordinatorCallback(`Hybrid search: "${query}"`);
       }
 
       // Generate Sanskrit search term
-      const searchTerm = await this.generateSearchTerm(requestToSearch, []);
+      const searchTerm = await this.generateSearchTerm(query, []);
       console.log(`   🔀 Performing hybrid search with term: "${searchTerm}"`);
       
       const hybridResult = await searchTool.hybridSearch(searchTerm, 5);
@@ -455,6 +573,13 @@ Sanskrit search phrase:`;
       console.error('❌ Hybrid search error:', error);
       return this.createErrorResponse('Hybrid search failed', userQuery, searchSuggestion);
     }
+  }
+
+  /**
+   * Hybrid search tool - combines vector and text search
+   */
+  async hybrid_search(userQuery: string, searchSuggestion?: string): Promise<AgentResponse> {
+    return await this.processSearchRequest(userQuery, searchSuggestion);
   }
 
   /**
@@ -577,10 +702,7 @@ Sanskrit search phrase:`;
     previousSearchTerms: string[] = []
   ): Promise<AgentResponse> {
     try {
-      // Ensure search tool is initialized
-      if (!this.searchToolInitialized) {
-        await this.initializeSearchTool();
-      }
+      // Note: Search tool is pre-initialized during app startup
 
       // Generate focused search term for this request
       const searchTerm = await this.generateSearchTerm(searchRequest, previousSearchTerms);

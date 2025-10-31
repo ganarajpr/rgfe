@@ -117,6 +117,38 @@ export function CitationVerse({ verse, importance = 'medium' }: CitationVersePro
       {/* Expanded Content */}
       {isExpanded && (
         <div className="p-4 space-y-4">
+          {/* Analysis Reasoning */}
+          {verse.analysisReasoning && (
+            <div className={`border-l-4 pl-4 py-3 rounded-r-lg ${
+              verse.isFiltered 
+                ? 'bg-red-50 border-red-400' 
+                : actualImportance === 'high'
+                ? 'bg-green-50 border-green-400'
+                : actualImportance === 'medium'
+                ? 'bg-blue-50 border-blue-400'
+                : 'bg-gray-50 border-gray-400'
+            }`}>
+              <div className="text-sm">
+                <span className={`font-semibold uppercase tracking-wide ${
+                  verse.isFiltered 
+                    ? 'text-red-700' 
+                    : actualImportance === 'high'
+                    ? 'text-green-700'
+                    : actualImportance === 'medium'
+                    ? 'text-blue-700'
+                    : 'text-gray-700'
+                }`}>
+                  {verse.isFiltered ? '✗ FILTERED' : actualImportance === 'high' ? '✓ HIGH' : actualImportance === 'medium' ? '○ MEDIUM' : '△ LOW'}:
+                </span>
+                <div className={`mt-1 ${
+                  verse.isFiltered ? 'text-red-800' : 'text-gray-700'
+                }`}>
+                  {verse.analysisReasoning}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Source Information */}
           {verse.source && (
             <div className="text-xs text-gray-500 bg-white px-3 py-2 rounded border">

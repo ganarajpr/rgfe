@@ -38,6 +38,11 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
     },
   ]);
 
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🔑 Gemini API Key state:', geminiApiKey ? `${geminiApiKey.length} chars` : 'empty');
+  }, [geminiApiKey]);
+
   useEffect(() => {
     const loadPrebuiltModels = () => {
       try {
@@ -195,27 +200,77 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
               {selectedProvider === 'gemini' && (
                 <div className="ml-7 mt-3 space-y-2">
                   <label htmlFor="gemini-api-key" className="block text-sm font-medium text-gray-700">
-                    Gemini API Key
+                    Gemini API Key {geminiApiKey && `(${geminiApiKey.length} characters)`}
                   </label>
-                  <input
-                    id="gemini-api-key"
-                    type="password"
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    placeholder="AIza..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Get your API key from{' '}
-                    <a
-                      href="https://aistudio.google.com/apikey"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
+                  <div className="relative flex gap-2">
+                    <input
+                      id="gemini-api-key"
+                      type="text"
+                      value={geminiApiKey}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        console.log('📝 onChange fired:', newValue.length, 'characters');
+                        setGeminiApiKey(newValue);
+                      }}
+                      onInput={(e) => {
+                        const newValue = (e.target as HTMLInputElement).value;
+                        console.log('⌨️ onInput fired:', newValue.length, 'characters');
+                        setGeminiApiKey(newValue);
+                      }}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pastedText = e.clipboardData.getData('text');
+                        console.log('📋 Paste detected:', pastedText.length, 'characters');
+                        setGeminiApiKey(pastedText.trim());
+                      }}
+                      placeholder="Paste your Gemini API key (starts with AIza...)"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                      autoComplete="off"
+                      spellCheck="false"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const text = await navigator.clipboard.readText();
+                          console.log('📋 Clipboard button clicked:', text.length, 'characters');
+                          setGeminiApiKey(text.trim());
+                        } catch (err) {
+                          console.error('Failed to read clipboard:', err);
+                          alert('Failed to read clipboard. Please paste manually (Ctrl+V or Cmd+V)');
+                        }
+                      }}
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                      title="Paste from clipboard"
                     >
-                      Google AI Studio
-                    </a>
-                  </p>
+                      📋 Paste
+                    </button>
+                    {geminiApiKey && geminiApiKey.length >= 20 && (
+                      <div className="absolute right-20 top-1/2 -translate-y-1/2">
+                        <span className="text-green-600 font-bold">✓</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">
+                      Get your API key from{' '}
+                      <a
+                        href="https://aistudio.google.com/apikey"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Google AI Studio
+                      </a>
+                    </p>
+                    {geminiApiKey && (
+                      <span className={`text-xs font-medium ${
+                        geminiApiKey.length >= 20 ? 'text-green-600' : 'text-orange-600'
+                      }`}>
+                        {geminiApiKey.length >= 20 ? 'Valid ✓' : `Need ${20 - geminiApiKey.length} more characters`}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -299,22 +354,27 @@ const LLMSelector = ({ onSelectModel, isOpen }: LLMSelectorProps) => {
           </div>
         </div>
         
-        <div className="p-6 border-t border-gray-200 flex justify-end">
+        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
           <button
             onClick={handleSubmit}
             disabled={
-              (selectedProvider === 'gemini' && !geminiApiKey) ||
+              (selectedProvider === 'gemini' && (!geminiApiKey || geminiApiKey.trim().length < 20)) ||
               (selectedProvider === 'webllm' && !selectedWebLLMModel)
             }
             className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-              (selectedProvider === 'gemini' && geminiApiKey) ||
-              (selectedProvider === 'webllm' && selectedWebLLMModel)
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              ((selectedProvider === 'gemini' && geminiApiKey && geminiApiKey.trim().length >= 20) ||
+              (selectedProvider === 'webllm' && selectedWebLLMModel))
+                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
             }`}
           >
             {selectedProvider === 'gemini' ? 'Connect to Gemini' : 'Load Model'}
           </button>
+          {selectedProvider === 'gemini' && geminiApiKey && geminiApiKey.trim().length < 20 && (
+            <p className="text-xs text-red-600 self-center">
+              API key must be at least 20 characters
+            </p>
+          )}
         </div>
       </div>
     </div>
