@@ -399,10 +399,6 @@ Sanskrit search phrase:`;
               isComplete: false,
               searchResults: searchResults,
               statusMessage: `Found ${searchResults.length} verses in ${verseRef}`,
-              metadata: {
-                searchMethod: 'book_context',
-                bookContext: verseRef,
-              }
             };
           } else {
             console.log(`   ⚠️ No verses found in book context "${verseRef}", falling back to hybrid search`);
@@ -463,9 +459,6 @@ Sanskrit search phrase:`;
         isComplete: false,
         searchResults: searchResults,
         statusMessage: `Found ${searchResults.length} relevant verses`,
-        metadata: {
-          searchMethod: 'hybrid',
-        }
       };
     } catch (error) {
       console.error('❌ Searcher error:', error);

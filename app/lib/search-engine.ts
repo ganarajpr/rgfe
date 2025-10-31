@@ -363,7 +363,7 @@ class SearchEngine {
    */
   private normalizeBookContext(context: string): string {
     // Remove "RV", "RV.", spaces, and convert to lowercase
-    let normalized = context
+    const normalized = context
       .toLowerCase()
       .replace(/^rv\.?/i, '')  // Remove RV or RV. prefix
       .replace(/\s+/g, '')      // Remove spaces
