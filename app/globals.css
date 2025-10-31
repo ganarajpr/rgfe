@@ -192,3 +192,31 @@ body {
 .importance-badge-low {
   @apply bg-gray-100 text-gray-600;
 }
+
+/* Print-specific styles to preserve fonts and layout */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Force Devanagari font for Sanskrit text in print */
+  .sanskrit-verse,
+  .sanskrit-text,
+  [class*="sanskrit"] {
+    font-family: 'Noto Sans Devanagari', sans-serif !important;
+    font-feature-settings: "kern" 1 !important;
+  }
+
+  /* Ensure all text uses the correct fonts */
+  body, * {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+  }
+
+  /* Override for Devanagari */
+  .sanskrit-verse *,
+  .sanskrit-text *,
+  [class*="devanagari"] * {
+    font-family: 'Noto Sans Devanagari', sans-serif !important;
+  }
+}

@@ -2,11 +2,11 @@ import { streamText } from 'ai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { AgentContext, AgentResponse, SearchResult } from './types';
 
-const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing in RigVeda queries. Your role is to:
+const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing in Rgveda queries. Your role is to:
 
 1. CLASSIFY incoming user requests:
-   - If the request is about the RigVeda (hymns, verses, deities, rituals, philosophy) → Route to SEARCHER agent
-   - If the request is NOT about the RigVeda → Respond directly with a polite decline
+   - If the request is about the Rgveda (hymns, verses, deities, rituals, philosophy) → Route to SEARCHER agent
+   - If the request is NOT about the Rgveda → Respond directly with a polite decline
 
 2. COORDINATE between agents:
    - When receiving results from SEARCHER agent → Route to ANALYZER agent
@@ -19,7 +19,7 @@ const ORCHESTRATOR_SYSTEM_PROMPT = `You are an Orchestrator Agent specializing i
    - Keep messages concise and clear
 
 RIGVEDA KNOWLEDGE FOR CLASSIFICATION:
-The RigVeda contains:
+The Rgveda contains:
 - 10 Mandalas (books) with 1,028 hymns (Suktas)
 - Famous hymns include:
   * Nasadiya Sukta (10.129) - Creation hymn
@@ -30,15 +30,15 @@ The RigVeda contains:
 - Vedic rituals, ceremonies, cosmology, philosophy
 
 IMPORTANT: 
-- This assistant ONLY answers questions about the RigVeda
-- DO route queries about RigVeda hymns (like Nasadiya Sukta, Purusha Sukta) to searcher
+- This assistant ONLY answers questions about the Rgveda
+- DO route queries about Rgveda hymns (like Nasadiya Sukta, Purusha Sukta) to searcher
 - DO NOT route queries about other texts (Upanishads, Mahabharata, Ramayana, Puranas, etc.)
-- Be INCLUSIVE: if a query mentions RigVeda content, route it to searcher
+- Be INCLUSIVE: if a query mentions Rgveda content, route it to searcher
 
 Response format:
-- For classification: Output JSON with { "isRigVedaRelated": boolean, "reasoning": string, "action": "respond" | "route_to_searcher" }
+- For classification: Output JSON with { "isRgvedaRelated": boolean, "reasoning": string, "action": "respond" | "route_to_searcher" }
 - For routing: Provide a brief status message about what's happening next
-- For non-RigVeda queries: Politely explain you specialize in the RigVeda only
+- For non-Rgveda queries: Politely explain you specialize in the Rgveda only
 
 Current conversation context will be provided with each request.`;
 
@@ -62,19 +62,19 @@ export class OrchestratorAgent {
 ${userQuery}
 </userRequest>
 
-Analyze this request and determine if it relates to the RigVeda specifically.
+Analyze this request and determine if it relates to the Rgveda specifically.
 
 CLASSIFY AS RIGVEDA-RELATED IF:
-- Asks about RigVeda hymns (Suktas) like Nasadiya Sukta, Purusha Sukta, etc.
+- Asks about Rgveda hymns (Suktas) like Nasadiya Sukta, Purusha Sukta, etc.
 - Asks about Vedic deities (Agni, Indra, Soma, Varuna, Ushas, etc.)
 - Asks about Vedic concepts (Rita, Yajna, sacrifice, cosmic order, etc.)
-- Asks about RigVeda Mandalas, verses, or structure
+- Asks about Rgveda Mandalas, verses, or structure
 - Asks about Vedic rituals, ceremonies, or philosophy FROM THE RIGVEDA
-- Mentions specific RigVeda references (e.g., "10.129", "Mandala 10")
+- Mentions specific Rgveda references (e.g., "10.129", "Mandala 10")
 
 CLASSIFY AS NOT RIGVEDA-RELATED IF:
 - Explicitly asks about other texts: Upanishads, Mahabharata, Ramayana, Puranas, Bhagavad Gita
-- Asks about later Vedas: Sama Veda, Yajur Veda, Atharva Veda (unless comparing to RigVeda)
+- Asks about later Vedas: Sama Veda, Yajur Veda, Atharva Veda (unless comparing to Rgveda)
 - Asks about non-Vedic topics
 
 BE INCLUSIVE: When in doubt, route to searcher. The searcher can handle queries even if they're not perfect.
@@ -116,28 +116,28 @@ Output ONLY a JSON object with your classification decision.`;
       }
 
       // Route based on classification
-      const isRigVedaRelated = classification.isRigVedaRelated || classification.isSanskritRelated; // Support both field names
-      if (isRigVedaRelated && classification.action === 'route_to_searcher') {
+      const isRgvedaRelated = classification.isRgvedaRelated || classification.isSanskritRelated; // Support both field names
+      if (isRgvedaRelated && classification.action === 'route_to_searcher') {
         return {
-          content: `I understand you're asking about the RigVeda. Let me search for relevant information...`,
+          content: `I understand you're asking about the Rgveda. Let me search for relevant information...`,
           nextAgent: 'searcher',
           isComplete: false,
-          statusMessage: 'Searching the RigVeda for relevant verses and information...',
+          statusMessage: 'Searching the Rgveda for relevant verses and information...',
         };
       } else {
-        // Not RigVeda related - respond directly
+        // Not Rgveda related - respond directly
         return {
-          content: `I appreciate your question, but I specialize exclusively in the RigVeda. Your question about "${userQuery}" appears to be outside my scope.
+          content: `I appreciate your question, but I specialize exclusively in the Rgveda. Your question about "${userQuery}" appears to be outside my scope.
 
 I can help you with:
-- RigVeda hymns and verses (Suktas)
+- Rgveda hymns and verses (Suktas)
 - Vedic deities (Agni, Indra, Soma, Varuna, etc.)
 - Vedic rituals and ceremonies
 - Vedic philosophy and cosmology
-- Meters and poetic structure in the RigVeda
+- Meters and poetic structure in the Rgveda
 - Historical and cultural context of Vedic hymns
 
-Is there anything related to the RigVeda I can help you with?`,
+Is there anything related to the Rgveda I can help you with?`,
           isComplete: true,
           statusMessage: 'Response complete',
         };

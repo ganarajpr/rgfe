@@ -85,7 +85,7 @@ export const useMultiAgent = ({ model }: UseMultiAgentProps) => {
           try {
             const obj = JSON.parse(candidate);
             const keys = Object.keys(obj as Record<string, unknown>);
-            const looksLikeControlJson = ['needsMoreSearch', 'searchRequest', 'reasoning', 'isRigVedaRelated', 'action'].some(k => keys.includes(k));
+            const looksLikeControlJson = ['needsMoreSearch', 'searchRequest', 'reasoning', 'isRgvedaRelated', 'action'].some(k => keys.includes(k));
             if (looksLikeControlJson || keys.length > 0) {
               endIndex = i + 1;
               break;

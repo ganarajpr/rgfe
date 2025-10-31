@@ -21,15 +21,15 @@ export class SearcherAgent {
   }
 
   /**
-   * Translate English query to Sanskrit search terms with RigVeda context
+   * Translate English query to Sanskrit search terms with Rgveda context
    */
   private async translateToSanskrit(englishQuery: string): Promise<string> {
     try {
       console.log(`🌐 Translating query to Sanskrit: "${englishQuery}"`);
       
-      const prompt = `You are a RigVeda scholar. Translate the following query into Sanskrit/Devanagari search terms that would be found in the RigVeda corpus.
+      const prompt = `You are a Rgveda scholar. Translate the following query into Sanskrit/Devanagari search terms that would be found in the Rgveda corpus.
 
-RIGVEDA CONTEXT:
+RGVEDA CONTEXT:
 - Corpus contains 10 Mandalas with hymns to deities like Agni (अग्नि), Indra (इन्द्र), Soma (सोम), Varuna (वरुण)
 - Key concepts: Rita (ऋत), Yajna (यज्ञ), Dharma (धर्म)
 - Famous hymns: Nasadiya Sukta (नासदीय सूक्त), Purusha Sukta (पुरुष सूक्त)
@@ -37,8 +37,8 @@ RIGVEDA CONTEXT:
 
 User Query: ${englishQuery}
 
-Generate 2-5 relevant Sanskrit/Devanagari keywords that would help find this topic in the RigVeda.
-Think: What Sanskrit terms would actually appear in RigVeda verses?
+Generate 2-5 relevant Sanskrit/Devanagari keywords that would help find this topic in the Rgveda.
+Think: What Sanskrit terms would actually appear in Rgveda verses?
 
 Provide ONLY the Sanskrit/Devanagari keywords separated by spaces. No explanations, only Devanagari script.
 
@@ -155,9 +155,9 @@ Sanskrit keywords:`;
    * Create the prompt for generating Sanskrit search terms
    */
   private createSearchTermPrompt(searchRequest: string, previousSearchTerms: string[]): string {
-    return `You are a RigVeda scholar and expert. For the given search request, generate ONE focused search phrase IN SANSKRIT/DEVANAGARI SCRIPT that would help find relevant information in the RigVeda corpus.
+    return `You are a Rgveda scholar and expert. For the given search request, generate ONE focused search phrase IN SANSKRIT/DEVANAGARI SCRIPT that would help find relevant information in the Rgveda corpus.
 
-RIGVEDA CORPUS KNOWLEDGE:
+RGVEDA CORPUS KNOWLEDGE:
 - 10 Mandalas (books) containing hymns to various deities
 - Major deities: Agni (अग्नि - fire), Indra (इन्द्र - thunder), Soma (सोम - sacred plant), Varuna (वरुण - cosmic order), Ushas (उषस् - dawn)
 - Key concepts: Rita (ऋत - cosmic order), Yajna (यज्ञ - sacrifice), Brahman (ब्रह्मन्), Atman (आत्मन्)
@@ -190,12 +190,12 @@ This search uses cosine similarity on embeddings, so longer phrases provide bett
 - Combine multiple Sanskrit terms that would appear together in verses
 - Think about what phrases would have similar vector representations in the corpus
 
-THINK: What 2-4 word Sanskrit phrase would ACTUALLY appear in RigVeda verses for this topic?
+THINK: What 2-4 word Sanskrit phrase would ACTUALLY appear in Rgveda verses for this topic?
 Consider what multi-word combinations would have similar semantic embeddings in the corpus.
 
 CRITICAL: Generate a NEW multi-word phrase that is NOT in the list above. Be creative and think of alternative Sanskrit phrases that would find different results.
 
-Generate ONE focused 2-4 word Sanskrit/Devanagari phrase that would find this in the RigVeda.
+Generate ONE focused 2-4 word Sanskrit/Devanagari phrase that would find this in the Rgveda.
 Return ONLY the Sanskrit phrase in Devanagari script, without explanations or formatting.
 
 Sanskrit search phrase:`;
@@ -445,7 +445,7 @@ Sanskrit search phrase:`;
       if (searchResults.length === 0) {
         console.log('⚠️ No search results found');
         return {
-          content: 'No results found in the RigVeda corpus for this search.',
+          content: 'No results found in the Rgveda corpus for this search.',
           nextAgent: 'generator',
           isComplete: false,
           searchResults: [],
@@ -454,7 +454,7 @@ Sanskrit search phrase:`;
       }
 
       return {
-        content: `Found ${searchResults.length} relevant verses from the RigVeda.`,
+        content: `Found ${searchResults.length} relevant verses from the Rgveda.`,
         nextAgent: 'analyzer',
         isComplete: false,
         searchResults: searchResults,
@@ -564,7 +564,7 @@ Sanskrit search phrase:`;
       console.log('═══════════════════════════════════════════════════════════\n');
 
       return {
-        content: `Found ${uniqueNewResults.length} additional verses from the RigVeda.`,
+        content: `Found ${uniqueNewResults.length} additional verses from the Rgveda.`,
         nextAgent: 'generator',
         isComplete: false,
         searchResults: allResults,

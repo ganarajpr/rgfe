@@ -310,9 +310,9 @@ export function getEmbeddingService(config?: EmbeddingServiceConfig): EmbeddingS
 /**
  * Default embedding model configuration
  * 
- * Using custom RigVeda-trained EmbeddingGemma model
+ * Using custom Rgveda-trained EmbeddingGemma model
  * - Model runs entirely in the browser using Transformers.js
- * - Fine-tuned for RigVeda Sanskrit text
+ * - Fine-tuned for Rgveda Sanskrit text
  * - Supports 512 dimensions with Matryoshka Representation Learning (MRL)
  * - Uses q8 quantization (~150MB, better quality than q4)
  * - State-of-the-art performance for Sanskrit semantic search

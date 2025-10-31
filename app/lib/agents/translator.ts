@@ -2,10 +2,10 @@ import { generateText } from 'ai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { AgentResponse, SearchResult } from './types';
 
-const TRANSLATOR_SYSTEM_PROMPT = `You are a Translator Agent specialized in selecting and translating RigVeda verses for user queries.
+const TRANSLATOR_SYSTEM_PROMPT = `You are a Translator Agent specialized in selecting and translating Rgveda verses for user queries.
 
-CORPUS KNOWLEDGE - The RigVeda:
-The RigVeda contains:
+CORPUS KNOWLEDGE - The Rgveda:
+The Rgveda contains:
 - 10 Mandalas (books) with 1,028 hymns (Suktas) containing 10,600+ verses (Richas)
 - Verses are in Vedic Sanskrit (Devanagari script)
 - Major deities: Agni (अग्नि), Indra (इन्द्र), Soma (सोम), Varuna (वरुण), Ushas (उषस्), etc.
@@ -92,7 +92,7 @@ Available Sanskrit Verses to Evaluate:
 ${searchResults.map((r, i) => `
 ${i + 1}. ID: ${r.id}
    Book Context: ${r.bookContext || 'Not specified'}
-   Source: ${r.source || 'RigVeda'}
+   Source: ${r.source || 'Rgveda'}
    Sanskrit Text: ${r.content?.substring(0, 200)}${(r.content?.length || 0) > 200 ? '...' : ''}
 `).join('\n')}
 

@@ -19,8 +19,8 @@ const notoSansDevanagari = Noto_Sans_Devanagari({
 });
 
 export const metadata: Metadata = {
-  title: "RigVeda Assistant",
-  description: "A fully client-side AI assistant for exploring the RigVeda - hymns, verses, deities, rituals, and Vedic teachings",
+  title: "Rgveda Jnata",
+  description: "A fully client-side AI assistant for exploring the Rgveda - hymns, verses, deities, rituals, and Vedic teachings",
 };
 
 export default function RootLayout({

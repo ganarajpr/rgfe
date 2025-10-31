@@ -66,9 +66,9 @@ export function HighlightedAnswer({ content, highlightSections }: HighlightedAns
           }
         );
         
-        // Enhance verse references (RV 5.1.8, RigVeda 5.1.8, etc.)
+        // Enhance verse references (RV 5.1.8, Rgveda 5.1.8, etc.)
         finalHtml = finalHtml.replace(
-          /\*\*(RV|RigVeda)\s+(\d+\.\d+\.\d+)\*\*/g,
+          /\*\*(RV|Rgveda)\s+(\d+\.\d+\.\d+)\*\*/g,
           '<span class="verse-reference">$1 $2</span>'
         );
         

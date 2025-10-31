@@ -13,7 +13,7 @@ interface VerseCardProps {
 }
 
 /**
- * A beautiful, structured card component for displaying RigVeda verses
+ * A beautiful, structured card component for displaying Rgveda verses
  * with proper typography, spacing, and visual hierarchy
  */
 export function VerseCard({ 

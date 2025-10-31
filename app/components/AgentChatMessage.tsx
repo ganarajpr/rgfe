@@ -179,7 +179,7 @@ const AgentChatMessage = ({ message, isStreaming }: AgentChatMessageProps) => {
       <div className="flex-1 space-y-3 overflow-hidden">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 bg-blue-500 rounded-full" />
-          <span className="text-sm font-semibold text-gray-600">Assistant</span>
+          <span className="text-sm font-semibold text-gray-600">Jnata</span>
           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
             {message.timestamp.toLocaleTimeString()}
           </span>
