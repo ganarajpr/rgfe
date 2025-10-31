@@ -1,4 +1,5 @@
 import pako from 'pako';
+import { getAssetPath } from './paths';
 
 /**
  * Binary persistence utility for Orama (Browser version)
@@ -36,13 +37,15 @@ function bufferToEmbedding(buffer: Uint8Array): number[] {
  */
 export async function loadOramaDataBinary(filePath: string): Promise<DocumentWithEmbedding[]> {
   try {
-    console.log(`Loading Orama data from binary format: ${filePath}...`);
+    // Use getAssetPath to handle basePath for GitHub Pages
+    const assetPath = getAssetPath(filePath);
+    console.log(`Loading Orama data from binary format: ${assetPath}...`);
     
     // Fetch the binary file from the public directory
-    const response = await fetch(filePath);
+    const response = await fetch(assetPath);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch binary data file: ${filePath} (${response.status})`);
+      throw new Error(`Failed to fetch binary data file: ${assetPath} (${response.status})`);
     }
     
     // Read the compressed data
