@@ -70,13 +70,14 @@ export async function loadOramaDataBinary(filePath: string): Promise<DocumentWit
     offset += headerLength;
     
     // Read document count
-    const documentCount = new DataView(decompressedBuffer.buffer, offset).getUint32(0, true);
+    const dataView = new DataView(decompressedBuffer.buffer);
+    const documentCount = dataView.getUint32(offset, true);
     offset += 4;
     
     // Read total size (skip it, we don't need it for reading)
     offset += 4;
     
-    console.log(`   Header: ${header.format}, ${header.documentCount} documents`);
+    console.log(`   Header: ${header.format}, ${documentCount} documents from binary`);
     
     // Read documents
     const documents: DocumentWithEmbedding[] = [];
@@ -84,31 +85,31 @@ export async function loadOramaDataBinary(filePath: string): Promise<DocumentWit
     
     for (let i = 0; i < documentCount; i++) {
       // Read id length and id
-      const idLength = new DataView(decompressedBuffer.buffer, offset).getUint32(0, true);
+      const idLength = dataView.getUint32(offset, true);
       offset += 4;
       const id = decoder.decode(decompressedBuffer.slice(offset, offset + idLength));
       offset += idLength;
       
       // Read text length and text
-      const textLength = new DataView(decompressedBuffer.buffer, offset).getUint32(0, true);
+      const textLength = dataView.getUint32(offset, true);
       offset += 4;
       const text = decoder.decode(decompressedBuffer.slice(offset, offset + textLength));
       offset += textLength;
       
       // Read book length and book
-      const bookLength = new DataView(decompressedBuffer.buffer, offset).getUint32(0, true);
+      const bookLength = dataView.getUint32(offset, true);
       offset += 4;
       const book = decoder.decode(decompressedBuffer.slice(offset, offset + bookLength));
       offset += bookLength;
       
       // Read bookContext length and bookContext
-      const bookContextLength = new DataView(decompressedBuffer.buffer, offset).getUint32(0, true);
+      const bookContextLength = dataView.getUint32(offset, true);
       offset += 4;
       const bookContext = decoder.decode(decompressedBuffer.slice(offset, offset + bookContextLength));
       offset += bookContextLength;
       
       // Read embedding length and embedding
-      const embeddingLength = new DataView(decompressedBuffer.buffer, offset).getUint32(0, true);
+      const embeddingLength = dataView.getUint32(offset, true);
       offset += 4;
       const embeddingBuffer = decompressedBuffer.slice(offset, offset + embeddingLength);
       const embedding = bufferToEmbedding(embeddingBuffer);

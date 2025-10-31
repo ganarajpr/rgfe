@@ -2,7 +2,7 @@ import { generateText } from 'ai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { AgentResponse, SearchResult } from './types';
 
-const TRANSLATOR_SYSTEM_PROMPT = `You are a Translator Agent specialized in translating RigVeda verses from Sanskrit to English and evaluating their relevance to user queries.
+const TRANSLATOR_SYSTEM_PROMPT = `You are a Translator Agent specialized in selecting and translating RigVeda verses for user queries.
 
 CORPUS KNOWLEDGE - The RigVeda:
 The RigVeda contains:
@@ -13,52 +13,49 @@ The RigVeda contains:
 - Famous hymns: Nasadiya Sukta (10.129 - creation), Purusha Sukta (10.90), Gayatri Mantra (3.62.10)
 - Reference format: Mandala.Hymn.Verse (e.g., 10.129.1)
 
-Your role is to:
-1. TRANSLATE each Sanskrit verse to clear, accurate English
-2. EVALUATE each verse's relevance to the user's specific question
-3. SELECT exactly 5 verses for the final answer (or all available if fewer than 5)
-4. If fewer than 5 relevant verses are available, request additional searches
-5. ENSURE the generator receives properly translated and relevant verses
+Your role is TWO-PHASE:
 
-TRANSLATION REQUIREMENTS:
-- Provide accurate, scholarly translations of Sanskrit verses
-- Maintain the poetic and ritualistic context of Vedic literature
-- Use clear, modern English while preserving the sacred nature
-- Include explanations of key Sanskrit terms when helpful
-- Ensure translations are suitable for academic/scholarly use
+PHASE 1: SELECTION (verses are in Sanskrit - evaluate without translating yet)
+1. EVALUATE each Sanskrit verse's relevance to the user's question by analyzing:
+   - The verse's book context and reference
+   - Key Sanskrit terms visible in the text
+   - The verse's thematic content based on context
+2. SELECT exactly 5-7 verses that best answer the user's question
+3. Prioritize verses that directly address the query
+4. If fewer than 5 relevant verses available, request additional searches
 
-EVALUATION CRITERIA:
-- **HIGH RELEVANCE**: Verse directly addresses the user's question with specific, detailed information
-- **MEDIUM RELEVANCE**: Verse is related to the topic but provides supporting or contextual information
+PHASE 2: TRANSLATION (only for selected verses)
+1. TRANSLATE ONLY the selected verses to clear, accurate English
+2. Provide scholarly, accurate translations maintaining the poetic and ritualistic context
+3. Use clear, modern English while preserving the sacred nature
+4. Include explanations of key Sanskrit terms when helpful
+
+EVALUATION CRITERIA (Phase 1 - Selection):
+- **HIGH RELEVANCE**: Verse directly addresses the user's question based on context and visible terms
+- **MEDIUM RELEVANCE**: Verse is related to the topic but provides supporting information
 - **LOW RELEVANCE**: Verse mentions the topic but is only tangentially relevant
 - **IRRELEVANT**: Verse has no meaningful connection to the user's question
 
+CRITICAL EFFICIENCY RULES:
+- DO NOT translate verses you won't select - translation is expensive
+- First evaluate ALL verses and SELECT the best 5-7
+- Then ONLY translate those selected verses
+- This saves significant processing time and focuses effort on relevant content
+
 SELECTION STRATEGY:
+- Select exactly 5-7 verses (prefer 5 unless more needed for completeness)
 - Prioritize verses that directly answer the user's question
 - Include supporting verses that provide important context
-- Ensure a comprehensive coverage of the topic
-- Select EXACTLY 5 verses that together provide a complete answer
-- If fewer than 5 relevant verses exist, request additional searches to find more
-- If more than 5 relevant verses exist, select the 5 most important ones
 - Avoid redundant or overly similar verses
-- NEVER proceed with fewer than 5 verses unless all available verses have been exhausted
-
-CRITICAL RULES:
-- You MUST provide accurate translations for ALL verses you select
-- You MUST evaluate each verse's relevance to the specific user question
-- You MUST select exactly 5 verses to provide a comprehensive answer
-- You MUST ensure the generator will have sufficient information
-- NEVER select verses without providing translations
-- NEVER select irrelevant verses just to fill a quota
-- If fewer than 5 relevant verses are available, request additional searches
-- NEVER proceed to generator with fewer than 5 verses unless all search options are exhausted
+- If fewer than 5 relevant verses exist, request additional searches
+- NEVER proceed with fewer than 5 verses unless all search options are exhausted
 
 Response format:
 - ALWAYS output ONLY a JSON object with: { "selectedVerses": [{"id": "verse_id", "translation": "English translation", "relevance": "high|medium|low", "reasoning": "why this verse is relevant"}], "totalSelected": number, "needsMoreSearch": boolean, "searchRequest": "sanskrit search term if more search needed", "reasoning": "overall selection strategy" }
+- ONLY translate the selected verses (5-7 verses maximum)
+- All other verses remain untranslated
 - If fewer than 5 verses selected, set "needsMoreSearch": true and provide "searchRequest"
-- If 5 or more verses selected, set "needsMoreSearch": false and "searchRequest": ""
-- Ensure all selected verses have complete translations
-- Provide clear reasoning for each verse selection
+- If 5+ verses selected, set "needsMoreSearch": false and "searchRequest": ""
 - Ensure the selected verses together provide comprehensive coverage of the user's question`;
 
 export class TranslatorAgent {
@@ -85,51 +82,54 @@ export class TranslatorAgent {
       };
     }
 
-    console.log(`🔄 Translator: Processing ${searchResults.length} verses for translation and evaluation`);
+    console.log(`🔄 Translator: Evaluating ${searchResults.length} verses to select and translate ~5 best matches`);
 
     const translationPrompt = `${TRANSLATOR_SYSTEM_PROMPT}
 
 User Query: ${userQuery}
 
-Available Sanskrit Verses to Translate and Evaluate:
+Available Sanskrit Verses to Evaluate:
 ${searchResults.map((r, i) => `
 ${i + 1}. ID: ${r.id}
-   Title: ${r.title}
-   Sanskrit: ${r.content}
-   Source: ${r.source || 'RigVeda'}
    Book Context: ${r.bookContext || 'Not specified'}
+   Source: ${r.source || 'RigVeda'}
+   Sanskrit Text: ${r.content?.substring(0, 200)}${(r.content?.length || 0) > 200 ? '...' : ''}
 `).join('\n')}
 
-TASK:
-1. Translate each Sanskrit verse to clear, accurate English
-2. Evaluate each verse's relevance to the user's question: "${userQuery}"
-3. Select EXACTLY 5 verses that together provide a comprehensive answer
-4. Ensure all selected verses have complete translations
-5. If fewer than 5 relevant verses exist, request additional searches to find more
-6. If more than 5 relevant verses exist, select the 5 most important ones
-7. NEVER proceed with fewer than 5 verses unless all search options are exhausted
+TASK - TWO PHASES:
 
-IMPORTANT:
-- Focus on verses that directly relate to the user's question
-- Provide accurate, scholarly translations
-- Select enough verses to give a complete answer
-- The generator will use these translated verses to create the final response
-- Do NOT select verses without providing translations
+PHASE 1: EVALUATE & SELECT (Do this first - no translation yet!)
+1. Review ALL ${searchResults.length} verses above
+2. Evaluate each verse's relevance to: "${userQuery}"
+3. Consider the book context and visible Sanskrit terms
+4. SELECT the best 5-7 verses that answer the question
+5. If fewer than 5 relevant verses, request additional search
+
+PHASE 2: TRANSLATE (Only for selected verses)
+1. ONLY translate the 5-7 verses you selected in Phase 1
+2. Provide complete, scholarly English translations
+3. Maintain poetic and ritualistic context
+4. Do NOT waste time translating verses you didn't select
+
+CRITICAL EFFICIENCY:
+- Translate ONLY 5-7 selected verses (not all ${searchResults.length} verses)
+- This is much more efficient and focuses effort on relevant content
+- The generator only needs the selected verses with translations
 
 Output ONLY a JSON object:
 {
   "selectedVerses": [
     {
       "id": "verse_id_from_above",
-      "translation": "Complete English translation of the Sanskrit verse",
+      "translation": "Complete English translation (ONLY for selected verses)",
       "relevance": "high|medium|low",
-      "reasoning": "Brief explanation of why this verse is relevant to the user's question"
+      "reasoning": "Why this verse is relevant to the user's question"
     }
   ],
   "totalSelected": number,
   "needsMoreSearch": boolean,
   "searchRequest": "Sanskrit search term if more search needed, empty string if 5+ verses selected",
-  "reasoning": "Overall strategy for verse selection and how they together answer the user's question"
+  "reasoning": "Overall selection strategy - why these specific verses answer the question"
 }`;
 
     try {

@@ -81,25 +81,25 @@ export default function TestSearchPage() {
       addConsoleMessage('📦 Loading tokenizer from HuggingFace...', 'log');
       
       const loadedTokenizer = await AutoTokenizer.from_pretrained(
-        'onnx-community/embeddinggemma-300m-ONNX'
+        'Ganaraj/rgveda-gemma-onnx'
       );
       setTokenizer(loadedTokenizer);
       addConsoleMessage('✅ Tokenizer loaded', 'success');
 
-      addConsoleMessage('📦 Loading model weights (q4 quantization)...', 'log');
+      addConsoleMessage('📦 Loading model weights (q8 quantization)...', 'log');
       const loadedModel = await AutoModel.from_pretrained(
-        'onnx-community/embeddinggemma-300m-ONNX',
-        { dtype: 'q4' }
+        'Ganaraj/rgveda-gemma-onnx',
+        { dtype: 'q8' }
       );
       setModel(loadedModel);
       addConsoleMessage('✅ Model weights loaded', 'success');
 
       // Load binary index (dynamically import to ensure client-side only)
       setInitProgress('Loading search index...');
-      addConsoleMessage('📦 Loading binary index from /smrithi-rgveda-embgemma-512d.bin...', 'log');
+      addConsoleMessage('📦 Loading binary index from /smrthi-rgveda-test-512d.bin...', 'log');
       
       const { loadOramaDataBinary } = await import('@/app/lib/binary-persistence');
-      const loadedDocs = await loadOramaDataBinary('/smrithi-rgveda-embgemma-512d.bin');
+      const loadedDocs = await loadOramaDataBinary('/smrthi-rgveda-test-512d.bin');
       setDocuments(loadedDocs);
       addConsoleMessage(`✅ Loaded ${loadedDocs.length} documents`, 'success');
 

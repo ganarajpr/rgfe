@@ -147,7 +147,7 @@ async function initializeSearch() {
     
     // Load binary index
     console.log('📦 Loading search index...');
-    const binaryPath = path.join(__dirname, 'public', 'smrithi-rgveda-embgemma-512d.bin');
+    const binaryPath = path.join(__dirname, 'public', 'smrthi-rgveda-test-512d.bin');
     
     if (!fs.existsSync(binaryPath)) {
       throw new Error(`Binary index not found at: ${binaryPath}`);

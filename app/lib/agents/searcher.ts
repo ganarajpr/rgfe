@@ -136,7 +136,7 @@ Sanskrit keywords:`;
       console.log('🔧 Initializing searcher agent...');
       
       const searchTool = getSearchTool({
-        binaryFilePath: '/smrithi-rgveda-embgemma-512d.bin',
+        binaryFilePath: '/smrthi-rgveda-test-512d.bin',
         defaultLimit: 5,
         minScore: 0.0, // Use 0.0 like cli-search.js for cosine similarity
         useEmbeddings: true, // Enable semantic vector search with EmbeddingGemma
@@ -287,8 +287,67 @@ Sanskrit search phrase:`;
   }
 
   /**
-   * Perform a single focused search based on the search request
-   * The orchestrator provides what should be searched
+   * Extract verse numbers from query (e.g., "10.129", "RV 10.129.1", "Mandala 10")
+   */
+  private extractVerseReference(query: string): string | null {
+    // Match patterns like: 10.129, RV 10.129, RV.10.129.1, Mandala 10, etc.
+    const patterns = [
+      /(?:RV\.?|Rig\s*Veda)?\s*(\d+\.\d+(?:\.\d+)?)/i,  // 10.129 or RV 10.129.1
+      /Mandala\s+(\d+)/i,                                  // Mandala 10
+      /Book\s+(\d+)/i,                                     // Book 10
+    ];
+
+    for (const pattern of patterns) {
+      const match = query.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+
+    // Check for famous hymn names with known references
+    const famousHymns: Record<string, string> = {
+      'nasadiya': '10.129',
+      'purusha sukta': '10.90',
+      'gayatri': '3.62.10',
+      'hiranyagarbha': '10.121',
+    };
+
+    const lowerQuery = query.toLowerCase();
+    for (const [name, ref] of Object.entries(famousHymns)) {
+      if (lowerQuery.includes(name)) {
+        console.log(`   📖 Recognized famous hymn "${name}" → ${ref}`);
+        return ref;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if query contains exact text phrases (for text similarity search)
+   */
+  private hasExactTextPhrase(query: string): boolean {
+    // Check for quotes or specific indicators of exact text
+    if (query.includes('"') || query.includes("'")) {
+      return true;
+    }
+
+    // Check for phrases that suggest looking for specific text
+    const exactTextIndicators = [
+      'exact words',
+      'specifically says',
+      'contains the phrase',
+      'word for word',
+      'verbatim',
+    ];
+
+    const lowerQuery = query.toLowerCase();
+    return exactTextIndicators.some(indicator => lowerQuery.includes(indicator));
+  }
+
+  /**
+   * Perform search with book context priority
+   * Flow: 1) Book context → analyzer → proceed OR 2) Fall back to hybrid search
    */
   async search(context: AgentContext, signal?: AbortSignal, searchRequest?: string): Promise<AgentResponse> {
     const requestToSearch = searchRequest || context.userQuery;
@@ -299,32 +358,85 @@ Sanskrit search phrase:`;
         await this.initializeSearchTool();
       }
 
-      // Generate single focused search term
+      let searchResults: SearchResult[] = [];
+      let searchMethod = '';
+      let bookContextAttempted = false;
+
+      // STEP 1: Check for verse numbers/book context
+      const verseRef = this.extractVerseReference(requestToSearch);
+      if (verseRef) {
+        console.log(`📖 STEP 1: Book Context Search for "${verseRef}"`);
+        searchMethod = `Book context: ${verseRef}`;
+        bookContextAttempted = true;
+        
+        if (this.coordinatorCallback) {
+          this.coordinatorCallback(`Searching book context: ${verseRef}`);
+        }
+
+        try {
+          // Get search engine directly to use simplified book context search
+          const searchEngine = await import('../search-engine').then(m => m.getSearchEngine());
+          const contextResults = await searchEngine.searchByBookContext(verseRef, 20);
+          
+          searchResults = contextResults.map(r => ({
+            id: r.id,
+            title: `${r.book || 'Unknown'} - ${r.bookContext || 'No context'}`,
+            content: r.text,
+            relevance: r.score,
+            source: r.book,
+            bookContext: r.bookContext,
+          }));
+          
+          console.log(`   ✅ Found ${searchResults.length} verses in context ${verseRef}`);
+          
+          // If we found verses, pass them to analyzer
+          // The orchestrator will handle sending these to the analyzer
+          if (searchResults.length > 0) {
+            console.log(`   ✅ Book context search successful, passing ${searchResults.length} verses to analyzer`);
+            return {
+              content: `Found ${searchResults.length} verses in ${verseRef}.`,
+              nextAgent: 'analyzer',
+              isComplete: false,
+              searchResults: searchResults,
+              statusMessage: `Found ${searchResults.length} verses in ${verseRef}`,
+              metadata: {
+                searchMethod: 'book_context',
+                bookContext: verseRef,
+              }
+            };
+          } else {
+            console.log(`   ⚠️ No verses found in book context "${verseRef}", falling back to hybrid search`);
+          }
+        } catch (error) {
+          console.error(`   ❌ Book context search failed:`, error);
+        }
+      }
+
+      // STEP 2: Fall back to hybrid search (semantic + text)
+      console.log(`🔍 STEP 2: Hybrid Search (book context ${bookContextAttempted ? 'returned no results' : 'not detected'})`);
+      searchMethod = 'Hybrid search';
+      
+      // Generate Sanskrit search term for semantic search
       const searchTerm = await this.generateSearchTerm(requestToSearch, []);
+      console.log(`🔍 Performing hybrid search with term: "${searchTerm}"`);
       
-      // Get the search tool
-      const searchTool = getSearchTool();
-      
-      console.log(`🔍 Performing search with term: "${searchTerm}"`);
-      
-      // Notify coordinator about search
       if (this.coordinatorCallback) {
         this.coordinatorCallback(`Searching: "${searchTerm}"`);
       }
 
-      let searchResults: SearchResult[] = [];
       try {
-        searchResults = await searchTool.search(searchTerm, 5);
-        console.log(`   ✅ Found ${searchResults.length} results`);
+        const searchTool = getSearchTool();
+        searchResults = await searchTool.search(searchTerm, 15); // Get more results for hybrid
+        console.log(`   ✅ Found ${searchResults.length} results using hybrid search`);
       } catch (error) {
-        console.error(`   ❌ Search failed for term "${searchTerm}":`, error);
+        console.error(`   ❌ Hybrid search failed for term "${searchTerm}":`, error);
       }
 
       // Log search results
       console.log('═══════════════════════════════════════════════════════════');
       console.log('🔍 SEARCH RESULTS');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log(`Search term: "${searchTerm}"`);
+      console.log(`Search method: ${searchMethod}`);
       console.log(`Results found: ${searchResults.length}`);
       if (searchResults.length > 0) {
         console.log('Top results:');
@@ -347,10 +459,13 @@ Sanskrit search phrase:`;
 
       return {
         content: `Found ${searchResults.length} relevant verses from the RigVeda.`,
-        nextAgent: 'generator',
+        nextAgent: 'analyzer',
         isComplete: false,
         searchResults: searchResults,
         statusMessage: `Found ${searchResults.length} relevant verses`,
+        metadata: {
+          searchMethod: 'hybrid',
+        }
       };
     } catch (error) {
       console.error('❌ Searcher error:', error);

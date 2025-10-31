@@ -102,24 +102,25 @@ export class SearchTool {
       const searchEngine = getSearchEngine();
       const searchLimit = limit || this.config.defaultLimit || 5;
       
-      // If embeddings are enabled, use vector search
+      // If embeddings are enabled, use hybrid search (vector + text)
       if (this.config.useEmbeddings && this.embeddingServiceInitialized) {
         try {
-          console.log('🔍 Using semantic vector search with embeddings');
+          console.log('🔍 Using hybrid search (vector + text) with embeddings');
           
           // Generate embedding for the query
           const embeddingService = getEmbeddingService();
           const queryEmbedding = await embeddingService.generateEmbedding(query);
           
-          // Perform vector search
-          const minScore = this.config.minScore ?? 0.1;
-          const results = await searchEngine.vectorSearch(
+          // Perform hybrid search combining vector and text search
+          const results = await searchEngine.hybridSearch(
+            query,
             queryEmbedding,
             searchLimit,
-            minScore
+            0.7, // Vector search weight (70%)
+            0.3  // Text search weight (30%)
           );
           
-          console.log(`✅ Found ${results.length} results using vector search`);
+          console.log(`✅ Found ${results.length} results using hybrid search`);
           
           // Convert to agent-friendly format
           return {
@@ -127,7 +128,7 @@ export class SearchTool {
             queryEmbedding: queryEmbedding
           };
         } catch (error) {
-          console.warn('⚠️ Vector search failed, falling back to text search:', error);
+          console.warn('⚠️ Hybrid search failed, falling back to text search:', error);
           // Fall through to text search below
         }
       }
@@ -182,6 +183,39 @@ export class SearchTool {
       return this.convertToAgentResults(results);
     } catch (error) {
       console.error('❌ Vector search failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search within a specific book context - returns ALL verses in that context
+   * @param bookContext - The book context to filter by (e.g., "RV.1.1", "RV.10.129")
+   * @param query - Not used, kept for backward compatibility
+   * @param limit - Maximum number of results (optional)
+   * @returns Array of search results filtered by book context
+   */
+  async searchByContext(bookContext: string, query?: string, limit?: number): Promise<SearchResult[]> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    try {
+      const searchEngine = getSearchEngine();
+      const searchLimit = limit || 20; // Default to 20 for book context
+      
+      // Perform simplified book context search (no semantic search within context)
+      // Just return all verses in that context
+      const results = await searchEngine.searchByBookContext(
+        bookContext,
+        searchLimit
+      );
+      
+      console.log(`✅ Found ${results.length} verses in context "${bookContext}"`);
+      
+      // Convert to agent-friendly format
+      return this.convertToAgentResults(results);
+    } catch (error) {
+      console.error('❌ Book context search failed:', error);
       throw error;
     }
   }

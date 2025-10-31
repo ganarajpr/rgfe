@@ -83,6 +83,23 @@ export default function Home() {
         console.log('No saved provider configuration found');
       }
       
+      // Pre-load embedding model in the background (runs independently)
+      if (typeof window !== 'undefined') {
+        console.log('🔧 Pre-loading embedding model in background...');
+        import('@/app/lib/embedding-service').then(({ getEmbeddingService, DEFAULT_EMBEDDING_CONFIG }) => {
+          const embeddingService = getEmbeddingService(DEFAULT_EMBEDDING_CONFIG);
+          embeddingService.initialize((progress, message) => {
+            console.log(`📦 Embedding model: ${progress}% - ${message}`);
+          }).then(() => {
+            console.log('✅ Embedding model pre-loaded successfully');
+          }).catch(error => {
+            console.warn('⚠️ Failed to pre-load embedding model:', error);
+          });
+        }).catch(error => {
+          console.warn('⚠️ Failed to import embedding service:', error);
+        });
+      }
+      
       setIsInitialCheck(false);
     };
     

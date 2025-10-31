@@ -310,19 +310,19 @@ export function getEmbeddingService(config?: EmbeddingServiceConfig): EmbeddingS
 /**
  * Default embedding model configuration
  * 
- * Using EmbeddingGemma (300M parameters) from Google DeepMind
+ * Using custom RigVeda-trained EmbeddingGemma model
  * - Model runs entirely in the browser using Transformers.js
- * - Supports 768 dimensions (full) but can be truncated to 512, 256, or 128
- * - Uses Matryoshka Representation Learning (MRL) for efficient truncation
- * - Multilingual support (100+ languages)
- * - State-of-the-art performance for its size
+ * - Fine-tuned for RigVeda Sanskrit text
+ * - Supports 512 dimensions with Matryoshka Representation Learning (MRL)
+ * - Uses q8 quantization (~150MB, better quality than q4)
+ * - State-of-the-art performance for Sanskrit semantic search
  * 
- * Model: https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX
+ * Model: https://huggingface.co/Ganaraj/rgveda-gemma-onnx
  */
 export const DEFAULT_EMBEDDING_CONFIG: EmbeddingServiceConfig = {
-  modelId: 'onnx-community/embeddinggemma-300m-ONNX',
+  modelId: 'Ganaraj/rgveda-gemma-onnx',
   dimension: 512, // Truncate to 512d (matches the binary index)
-  quantization: 'q4', // Use q4 quantization for faster loading and inference
+  quantization: 'q8', // Use q8 quantization (~150MB, better quality than q4)
 };
 
 export { EmbeddingService };
